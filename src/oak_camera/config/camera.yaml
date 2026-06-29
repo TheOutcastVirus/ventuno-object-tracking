@@ -1,0 +1,33 @@
+/**:
+  ros__parameters:
+    # Which streams to enable
+    enable_rgb: true
+    enable_left: false
+    enable_right: false
+
+    # RGB settings
+    rgb_fps: 30.0
+    rgb_width: 1920
+    rgb_height: 1080
+    # "video" | "preview" | "isp"
+    rgb_output: "video"
+
+    # Mono settings (left / right)
+    mono_fps: 30.0
+    mono_width: 640
+    mono_height: 400
+
+    # Topic names
+    rgb_topic: "oak/rgb/image_raw"
+    left_topic: "oak/left/image_raw"
+    right_topic: "oak/right/image_raw"
+
+    # Camera info URLs (empty = no calibration published)
+    rgb_camera_info_url: ""
+    left_camera_info_url: ""
+    right_camera_info_url: ""
+
+    # Frame IDs
+    rgb_frame_id: "oak_rgb_camera_optical_frame"
+    left_frame_id: "oak_left_camera_optical_frame"
+    right_frame_id: "oak_right_camera_optical_frame"
