@@ -30,10 +30,10 @@ private:
   dai::Pipeline pipeline_;
   std::shared_ptr<dai::Device> device_;
 
-  // Output queues (one per enabled stream)
-  std::shared_ptr<dai::DataOutputQueue> rgb_queue_;
-  std::shared_ptr<dai::DataOutputQueue> left_queue_;
-  std::shared_ptr<dai::DataOutputQueue> right_queue_;
+  // Output queues (one per enabled stream) — dai::DataQueue in v3 (was DataOutputQueue in v2)
+  std::shared_ptr<dai::DataQueue> rgb_queue_;
+  std::shared_ptr<dai::DataQueue> left_queue_;
+  std::shared_ptr<dai::DataQueue> right_queue_;
 
   // ROS publishers
   image_transport::CameraPublisher rgb_pub_;

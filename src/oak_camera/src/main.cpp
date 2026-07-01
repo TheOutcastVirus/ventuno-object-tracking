@@ -6,7 +6,7 @@ int main(int argc, char ** argv)
 {
   rclcpp::init(argc, argv);
   auto node = std::make_shared<oak_camera::OakCameraNode>(rclcpp::NodeOptions());
-  rclcpp::spin(node);
+  rclcpp::spin(std::static_pointer_cast<rclcpp::Node>(node));
   rclcpp::shutdown();
   return 0;
 }

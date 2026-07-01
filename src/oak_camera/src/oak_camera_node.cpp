@@ -8,10 +8,6 @@
 #include <opencv2/core.hpp>
 #include <sensor_msgs/image_encodings.hpp>
 
-#include <depthai/pipeline/node/ColorCamera.hpp>
-#include <depthai/pipeline/node/MonoCamera.hpp>
-#include <depthai/pipeline/node/XLinkOut.hpp>
-
 namespace oak_camera
 {
 
