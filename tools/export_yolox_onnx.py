@@ -232,6 +232,8 @@ def main():
 
     dummy = torch.zeros(1, 3, args.input_size, args.input_size)
 
+    # Use the legacy exporter explicitly — the new dynamo-based exporter in
+    # torch >= 2.x has additional deps (onnxscript) and changed behaviour.
     torch.onnx.export(
         model,
         dummy,
@@ -240,6 +242,7 @@ def main():
         output_names=["output"],
         opset_version=args.opset,
         dynamic_axes={"images": {0: "batch_size"}},
+        dynamo=False,
     )
 
     size_mb = os.path.getsize(args.output) / 1_048_576

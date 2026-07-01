@@ -3,8 +3,10 @@ build/
 install/
 log/
 
-# Model files (large binaries — copy to robot manually)
-models/
+# Model files — .pth weights are large and not tracked
+models/*.pth
+# .onnx is tracked (exported, ready to use, ~20 MB)
+
 
 # Python
 __pycache__/
