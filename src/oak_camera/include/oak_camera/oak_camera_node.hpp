@@ -2,6 +2,7 @@
 
 #include <memory>
 #include <string>
+#include <functional>
 
 #include <rclcpp/rclcpp.hpp>
 #include <sensor_msgs/msg/image.hpp>
@@ -9,7 +10,8 @@
 #include <image_transport/image_transport.hpp>
 #include <camera_info_manager/camera_info_manager.hpp>
 
-#include <depthai/depthai.hpp>
+// No depthai headers here — they are included only in the .cpp to prevent
+// DepthAI's bundled/transitive headers from conflicting with ROS2's rclcpp.
 
 namespace oak_camera
 {
@@ -26,14 +28,10 @@ private:
   void startDevice();
   void publishLoop();
 
-  // DepthAI objects
-  dai::Pipeline pipeline_;
-  std::shared_ptr<dai::Device> device_;
-
-  // Output queues (one per enabled stream) — dai::DataQueue in v3 (was DataOutputQueue in v2)
-  std::shared_ptr<dai::DataQueue> rgb_queue_;
-  std::shared_ptr<dai::DataQueue> left_queue_;
-  std::shared_ptr<dai::DataQueue> right_queue_;
+  // Opaque DepthAI state — defined in oak_camera_node.cpp where depthai.hpp is included.
+  // unique_ptr of incomplete type: destructor must be defined in the .cpp.
+  struct DaiResources;
+  std::unique_ptr<DaiResources> dai_;
 
   // ROS publishers
   image_transport::CameraPublisher rgb_pub_;
@@ -44,10 +42,8 @@ private:
   std::shared_ptr<camera_info_manager::CameraInfoManager> left_info_mgr_;
   std::shared_ptr<camera_info_manager::CameraInfoManager> right_info_mgr_;
 
-  // Publish timer
   rclcpp::TimerBase::SharedPtr timer_;
 
-  // Params
   bool enable_rgb_;
   bool enable_left_;
   bool enable_right_;
