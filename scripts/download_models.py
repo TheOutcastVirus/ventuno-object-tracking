@@ -67,22 +67,24 @@ def download_pth(dest: str) -> None:
 def export_onnx(pth_path: str, onnx_path: str, input_size: int, opset: int) -> None:
     try:
         import torch
-        from yolox.models import YOLOX, YOLOXHead, YOLOPAFPN
-    except ImportError as e:
+    except ImportError:
         raise SystemExit(
-            f"Export requires torch and yolox:\n"
-            f"  pip install torch torchvision\n"
-            f"  pip install git+https://github.com/Megvii-BaseDetection/YOLOX.git\n"
-            f"Original error: {e}"
+            "Export requires torch:\n"
+            "  pip install torch torchvision\n"
+            "(onnxruntime is enough for inference — torch is only needed here)"
         )
+
+    # Import the self-contained model definition from tools/export_yolox_onnx.py
+    import importlib.util
+    export_script = os.path.join(os.path.dirname(__file__), "..", "tools", "export_yolox_onnx.py")
+    spec = importlib.util.spec_from_file_location("export_yolox_onnx", export_script)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    YOLOXTiny = mod.YOLOXTiny
 
     print(f"Exporting {pth_path} → {onnx_path} (input {input_size}×{input_size}) ...")
 
-    depth, width = 0.33, 0.375
-    backbone = YOLOPAFPN(depth=depth, width=width)
-    head = YOLOXHead(num_classes=80, width=width, decode_in_inference=False)
-    model = YOLOX(backbone=backbone, head=head)
-
+    model = YOLOXTiny()
     ckpt = torch.load(pth_path, map_location="cpu")
     model.load_state_dict(ckpt.get("model", ckpt))
     model.eval()

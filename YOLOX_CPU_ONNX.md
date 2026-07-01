@@ -186,12 +186,13 @@ pip install -r requirements.txt
 sudo apt install ros-jazzy-cv-bridge
 ```
 
-**Auto-download fails / `No module named 'yolox'`**
+**Auto-download fails / `No module named 'torch'`**
 ```bash
 pip install -r requirements-export.txt
 python3 scripts/download_models.py
 ```
 The export dependencies are only needed once for the `.pth` → `.onnx` step; not at inference time.
+The YOLOX architecture is inlined in `tools/export_yolox_onnx.py` — no `yolox` package or git installs required.
 
 **Model loads but no detections**
 - Verify the ONNX model was exported with `decode_in_inference=False` (the default in this guide)

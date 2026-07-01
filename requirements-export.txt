@@ -6,6 +6,8 @@
 #   scripts/download_models.py  (auto-invoked if models/yolox_tiny.onnx is missing)
 #
 # Not needed at inference time — only for the one-time model export step.
+# The YOLOX architecture is inlined in tools/export_yolox_onnx.py,
+# so no git installs or compiled packages are required.
 
 # Runtime deps (same as requirements.txt)
 onnxruntime
@@ -15,4 +17,3 @@ opencv-python
 # Export-only deps
 torch
 torchvision
-git+https://github.com/Megvii-BaseDetection/YOLOX.git
