@@ -3,3 +3,4 @@
 onnxruntime
 numpy
 opencv-python
+pyyaml

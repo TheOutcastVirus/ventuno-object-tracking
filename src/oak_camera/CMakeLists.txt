@@ -18,7 +18,7 @@ find_package(cv_bridge REQUIRED)
 # depthai-core must be installed on the target (Ventuno / dev machine).
 # Install via:  sudo apt install libdepthai-dev   (if packaged)
 # or build from source and set depthai_DIR to the cmake install prefix.
-find_package(depthai REQUIRED)
+find_package(depthai_v3 REQUIRED)
 
 # ── Node executable ───────────────────────────────────────────────────────────
 add_executable(oak_camera_node
@@ -33,7 +33,7 @@ target_include_directories(oak_camera_node
 )
 
 target_link_libraries(oak_camera_node
-  depthai::core
+  depthai_v3::core
 )
 
 ament_target_dependencies(oak_camera_node
