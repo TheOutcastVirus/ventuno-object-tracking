@@ -22,6 +22,22 @@ if(DEFINED EXECUTORCH_INSTALL_DIR)
   list(APPEND CMAKE_PREFIX_PATH ${EXECUTORCH_INSTALL_DIR})
 endif()
 
+# The native Qualcomm ExecuTorch build currently exports optional LLM/tokenizer
+# targets even when this package only links the runtime module API. Predefine the
+# tokenizer targets so ExecuTorch's package config can load without requiring
+# the full tokenizer dependency graph.
+foreach(_tokenizer_target
+  tokenizers::regex_lookahead
+  tokenizers::pcre2-8-static
+  tokenizers::tokenizers
+  tokenizers::re2
+  tokenizers::sentencepiece-static
+)
+  if(NOT TARGET ${_tokenizer_target})
+    add_library(${_tokenizer_target} INTERFACE IMPORTED)
+  endif()
+endforeach()
+
 find_package(executorch REQUIRED)
 
 # ── Backend selection ─────────────────────────────────────────────────────────
@@ -40,6 +56,7 @@ endif()
 
 # ── Executable ────────────────────────────────────────────────────────────────
 add_executable(yolox_detector_node ${SOURCES})
+add_executable(dataset_image_publisher_node src/dataset_image_publisher_node.cpp)
 
 target_include_directories(yolox_detector_node
   PUBLIC
@@ -47,6 +64,7 @@ target_include_directories(yolox_detector_node
     $<INSTALL_INTERFACE:include>
   PRIVATE
     ${OpenCV_INCLUDE_DIRS}
+    ${EXECUTORCH_INCLUDE_DIRS}
 )
 
 target_compile_definitions(yolox_detector_node PRIVATE
@@ -57,7 +75,8 @@ target_link_libraries(yolox_detector_node
   executorch
   executorch_core
   extension_module_static
-  xnnpack_backend
+  extension_tensor
+  portable_ops_lib
   ${OpenCV_LIBS}
   $<$<BOOL:${BUILD_QNN_BACKEND}>:qnn_executorch_backend>
 )
@@ -70,8 +89,25 @@ ament_target_dependencies(yolox_detector_node
   cv_bridge
 )
 
+target_include_directories(dataset_image_publisher_node
+  PRIVATE
+    ${OpenCV_INCLUDE_DIRS}
+)
+
+target_link_libraries(dataset_image_publisher_node
+  ${OpenCV_LIBS}
+)
+
+ament_target_dependencies(dataset_image_publisher_node
+  rclcpp
+  sensor_msgs
+  cv_bridge
+)
+
 # ── Install ───────────────────────────────────────────────────────────────────
-install(TARGETS yolox_detector_node
+install(TARGETS
+  yolox_detector_node
+  dataset_image_publisher_node
   DESTINATION lib/${PROJECT_NAME}
 )
 

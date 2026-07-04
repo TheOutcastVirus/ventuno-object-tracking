@@ -3,7 +3,7 @@
 #ifdef HAVE_QNN_BACKEND
 #include "yolox_detector/qnn_backend.hpp"
 #endif
-#include <cv_bridge/cv_bridge.h>
+#include <cv_bridge/cv_bridge.hpp>
 #include <opencv2/imgproc.hpp>
 #include <vision_msgs/msg/detection2_d.hpp>
 #include <vision_msgs/msg/object_hypothesis_with_pose.hpp>
@@ -93,9 +93,6 @@ void YoloxDetectorNode::image_callback(
 
   float scale, pad_left, pad_top;
   cv::Mat lb = letterbox(cv_img->image, in_w, in_h, scale, pad_left, pad_top);
-
-  // Normalize [0, 255] → [0.0, 1.0]
-  lb.convertTo(lb, CV_32F, 1.0 / 255.0);
 
   // Inference
   std::vector<float> raw;

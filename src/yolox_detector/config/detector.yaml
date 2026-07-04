@@ -1,19 +1,21 @@
-backend: "cpu"  # "cpu" (XNNPACK) or "npu" (QNN HTP)
+yolox_detector:
+  ros__parameters:
+    backend: "cpu"  # "cpu" (XNNPACK) or "npu" (QNN HTP)
+    model_path: "models/yolox_tiny_xnnpack.pte"
+    qnn_lib_dir: ""
+    input_width: 416
+    input_height: 416
+    score_threshold: 0.45
+    nms_threshold: 0.45
+    num_classes: 80
+    image_topic: "/camera/rgb/image_raw"
+    detections_topic: "/detections"
+    debug_image_topic: "/detections/image"
 
-# Path to .pte model file (relative to CWD or absolute)
-model_path: "models/yolox_tiny_xnnpack.pte"
-
-# QNN-only: path to the directory containing libQnnHtp.so etc.
-# Overrides QNN_SDK_ROOT env var if set.
-qnn_lib_dir: ""
-
-input_width: 416
-input_height: 416
-
-score_threshold: 0.45
-nms_threshold: 0.45
-
-# Topic configuration
-image_topic: "/camera/rgb/image_raw"
-detections_topic: "/detections"
-debug_image_topic: "/detections/image"
+dataset_image_publisher:
+  ros__parameters:
+    dataset_path: "datasets/sample_images"
+    image_topic: "/camera/rgb/image_raw"
+    publish_rate: 15.0
+    loop: true
+    frame_id: "dataset_camera"

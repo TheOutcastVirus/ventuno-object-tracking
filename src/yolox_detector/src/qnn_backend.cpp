@@ -2,6 +2,7 @@
 #include <executorch/extension/module/module.h>
 #include <executorch/extension/tensor/tensor.h>
 #include <executorch/runtime/core/evalue.h>
+#include <executorch/runtime/core/error.h>
 #include <opencv2/imgproc.hpp>
 #include <cstring>
 #include <stdexcept>
@@ -9,7 +10,9 @@
 
 using executorch::extension::Module;
 using executorch::extension::from_blob;
+using executorch::aten::SizesType;
 using executorch::runtime::EValue;
+using executorch::runtime::Error;
 
 namespace yolox_detector {
 
@@ -39,9 +42,9 @@ QnnBackend::QnnBackend(int width, int height, const std::string & qnn_lib_dir)
 bool QnnBackend::load(const std::string & model_path)
 {
   preload_qnn_libs(qnn_lib_dir_);
-  // MmapUseMlock keeps the model file in memory — important for warm latency.
+  // MmapUseMlock keeps the model file in memory, which helps warm latency.
   module_ = std::make_unique<Module>(model_path, Module::LoadMode::MmapUseMlock);
-  return module_->is_loaded();
+  return module_->load() == Error::Ok;
 }
 
 std::vector<float> QnnBackend::infer(const cv::Mat & input_f32)
@@ -56,7 +59,7 @@ std::vector<float> QnnBackend::infer(const cv::Mat & input_f32)
                 plane * sizeof(float));
   }
 
-  std::vector<int64_t> shape = {1, 3, height_, width_};
+  std::vector<SizesType> shape = {1, 3, height_, width_};
   auto tensor = from_blob(chw_buf.data(), shape);
 
   auto result = module_->execute("forward", {EValue(tensor)});

@@ -21,8 +21,9 @@ cv::Mat letterbox(const cv::Mat & src, int out_w, int out_h,
 
   cv::Mat resized;
   cv::resize(src, resized, {new_w, new_h}, 0, 0, cv::INTER_LINEAR);
+  resized.convertTo(resized, CV_32FC3);
 
-  cv::Mat dst(out_h, out_w, CV_32FC3, cv::Scalar(114.f / 255.f, 114.f / 255.f, 114.f / 255.f));
+  cv::Mat dst(out_h, out_w, CV_32FC3, cv::Scalar(114.f, 114.f, 114.f));
   resized.copyTo(dst(cv::Rect(
     static_cast<int>(pad_left), static_cast<int>(pad_top), new_w, new_h)));
 
@@ -30,6 +31,11 @@ cv::Mat letterbox(const cv::Mat & src, int out_w, int out_h,
 }
 
 namespace {
+
+float sigmoid(float x)
+{
+  return 1.f / (1.f + std::exp(-x));
+}
 
 float iou(const Detection & a, const Detection & b)
 {
@@ -53,14 +59,14 @@ void decode_anchor(const float * row, int grid_x, int grid_y, int stride,
                    float scale, float pad_left, float pad_top,
                    std::vector<Detection> & out)
 {
-  float obj = row[4];
+  float obj = sigmoid(row[4]);
   // quick reject before computing class scores
   if (obj < score_thr) return;
 
   int best_cls = 0;
   float best_score = 0.f;
   for (int c = 0; c < num_classes; ++c) {
-    float s = obj * row[5 + c];
+    float s = obj * sigmoid(row[5 + c]);
     if (s > best_score) { best_score = s; best_cls = c; }
   }
   if (best_score < score_thr) return;

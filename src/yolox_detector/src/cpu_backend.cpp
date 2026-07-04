@@ -2,13 +2,16 @@
 #include <executorch/extension/module/module.h>
 #include <executorch/extension/tensor/tensor.h>
 #include <executorch/runtime/core/evalue.h>
+#include <executorch/runtime/core/error.h>
 #include <opencv2/imgproc.hpp>
 #include <stdexcept>
 
 using executorch::extension::Module;
 using executorch::extension::TensorPtr;
 using executorch::extension::from_blob;
+using executorch::aten::SizesType;
 using executorch::runtime::EValue;
+using executorch::runtime::Error;
 
 namespace yolox_detector {
 
@@ -18,7 +21,7 @@ CpuBackend::CpuBackend(int width, int height)
 bool CpuBackend::load(const std::string & model_path)
 {
   module_ = std::make_unique<Module>(model_path, Module::LoadMode::MmapUseMlock);
-  return module_->is_loaded();
+  return module_->load() == Error::Ok;
 }
 
 std::vector<float> CpuBackend::infer(const cv::Mat & input_f32)
@@ -39,7 +42,7 @@ std::vector<float> CpuBackend::infer(const cv::Mat & input_f32)
   }
 
   // Wrap as an ExecuTorch tensor [1, 3, H, W]
-  std::vector<int64_t> shape = {1, 3, height_, width_};
+  std::vector<SizesType> shape = {1, 3, height_, width_};
   auto tensor = from_blob(chw_buf.data(), shape);
 
   auto result = module_->execute("forward", {EValue(tensor)});
