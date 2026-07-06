@@ -21,7 +21,7 @@ def generate_launch_description():
 
     image_topic_arg = DeclareLaunchArgument(
         "image_topic",
-        default_value="/camera/rgb/image_raw",
+        default_value="/oak/rgb/image_raw",
         description="Image topic shared by dataset publisher and detector",
     )
 
