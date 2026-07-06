@@ -1,21 +1,39 @@
-from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument
 from launch.substitutions import LaunchConfiguration, PathJoinSubstitution
 from launch_ros.actions import Node
 from launch_ros.substitutions import FindPackageShare
 
+from launch import LaunchDescription
+
 
 def generate_launch_description():
     backend_arg = DeclareLaunchArgument(
-        "backend", default_value="cpu",
-        description="Inference backend: 'cpu' (XNNPACK) or 'npu' (QNN HTP)")
+        "backend",
+        default_value="npu",
+        description="Inference backend: 'cpu' (XNNPACK) or 'npu' (QNN HTP)",
+    )
 
     model_path_arg = DeclareLaunchArgument(
-        "model_path", default_value="models/yolox_tiny_xnnpack.pte",
-        description="Path to .pte model file")
+        "model_path",
+        default_value="models/yolox_tiny_qnn.pte",
+        description="Path to .pte model file",
+    )
+
+    image_topic_arg = DeclareLaunchArgument(
+        "image_topic",
+        default_value="/camera/rgb/image_raw",
+        description="Image topic shared by dataset publisher and detector",
+    )
+
+    qnn_lib_dir_arg = DeclareLaunchArgument(
+        "qnn_lib_dir",
+        default_value="/opt/qcom/aistack/qairt/2.47.0.260601/lib/aarch64-oe-linux-gcc11.2",
+        description="Directory containing QNN runtime libraries",
+    )
 
     params_file = PathJoinSubstitution(
-        [FindPackageShare("yolox_detector"), "config", "detector.yaml"])
+        [FindPackageShare("yolox_detector"), "config", "detector.yaml"]
+    )
 
     detector_node = Node(
         package="yolox_detector",
@@ -26,13 +44,19 @@ def generate_launch_description():
             {
                 "backend": LaunchConfiguration("backend"),
                 "model_path": LaunchConfiguration("model_path"),
+                # "qnn_lib_dir": LaunchConfiguration("qnn_lib_dir"),
+                "image_topic": LaunchConfiguration("image_topic"),
             },
         ],
         output="screen",
     )
 
-    return LaunchDescription([
-        backend_arg,
-        model_path_arg,
-        detector_node,
-    ])
+    return LaunchDescription(
+        [
+            backend_arg,
+            model_path_arg,
+            image_topic_arg,
+            qnn_lib_dir_arg,
+            detector_node,
+        ]
+    )
