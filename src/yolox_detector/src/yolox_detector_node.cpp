@@ -8,9 +8,25 @@
 #include <vision_msgs/msg/detection2_d.hpp>
 #include <vision_msgs/msg/object_hypothesis_with_pose.hpp>
 #include <rclcpp/rclcpp.hpp>
+#include <cstdio>
 #include <stdexcept>
 
 namespace yolox_detector {
+
+static const char * kCocoLabels[] = {
+  "person","bicycle","car","motorcycle","airplane","bus","train","truck","boat",
+  "traffic light","fire hydrant","stop sign","parking meter","bench","bird","cat",
+  "dog","horse","sheep","cow","elephant","bear","zebra","giraffe","backpack",
+  "umbrella","handbag","tie","suitcase","frisbee","skis","snowboard","sports ball",
+  "kite","baseball bat","baseball glove","skateboard","surfboard","tennis racket",
+  "bottle","wine glass","cup","fork","knife","spoon","bowl","banana","apple",
+  "sandwich","orange","broccoli","carrot","hot dog","pizza","donut","cake","chair",
+  "couch","potted plant","bed","dining table","toilet","tv","laptop","mouse",
+  "remote","keyboard","cell phone","microwave","oven","toaster","sink",
+  "refrigerator","book","clock","vase","scissors","teddy bear","hair drier",
+  "toothbrush"
+};
+static constexpr int kNumCocoLabels = 80;
 
 YoloxDetectorNode::YoloxDetectorNode(const rclcpp::NodeOptions & options)
 : Node("yolox_detector", options)
@@ -139,10 +155,33 @@ void YoloxDetectorNode::image_callback(
   if (debug_pub_.getNumSubscribers() > 0) {
     cv::Mat dbg = cv_img->image.clone();
     for (const auto & d : dets) {
-      cv::rectangle(dbg,
-                    cv::Point(static_cast<int>(d.x1), static_cast<int>(d.y1)),
-                    cv::Point(static_cast<int>(d.x2), static_cast<int>(d.y2)),
+      int x1 = static_cast<int>(d.x1);
+      int y1 = static_cast<int>(d.y1);
+      int x2 = static_cast<int>(d.x2);
+      int y2 = static_cast<int>(d.y2);
+
+      cv::rectangle(dbg, cv::Point(x1, y1), cv::Point(x2, y2),
                     cv::Scalar(0, 255, 0), 2);
+
+      const char * name = (d.class_id >= 0 && d.class_id < kNumCocoLabels)
+                          ? kCocoLabels[d.class_id] : "unknown";
+      char label[64];
+      std::snprintf(label, sizeof(label), "%s %.0f%%", name, d.score * 100.f);
+
+      int baseline = 0;
+      double font_scale = 0.55;
+      int thickness = 1;
+      cv::Size text_size = cv::getTextSize(
+        label, cv::FONT_HERSHEY_SIMPLEX, font_scale, thickness, &baseline);
+
+      int text_y = (y1 - 4 > text_size.height) ? y1 - 4 : y2 + text_size.height + 4;
+      cv::rectangle(dbg,
+                    cv::Point(x1, text_y - text_size.height - baseline),
+                    cv::Point(x1 + text_size.width, text_y + baseline),
+                    cv::Scalar(0, 255, 0), cv::FILLED);
+      cv::putText(dbg, label, cv::Point(x1, text_y),
+                  cv::FONT_HERSHEY_SIMPLEX, font_scale,
+                  cv::Scalar(0, 0, 0), thickness, cv::LINE_AA);
     }
     auto dbg_msg = cv_bridge::CvImage(msg->header, "bgr8", dbg).toImageMsg();
     debug_pub_.publish(*dbg_msg);

@@ -31,6 +31,12 @@ def generate_launch_description():
         description="Directory containing QNN runtime libraries",
     )
 
+    score_threshold_arg = DeclareLaunchArgument(
+        "score_threshold",
+        default_value="0.45",
+        description="Minimum confidence score for detections (0.0–1.0)",
+    )
+
     params_file = PathJoinSubstitution(
         [FindPackageShare("yolox_detector"), "config", "detector.yaml"]
     )
@@ -46,6 +52,7 @@ def generate_launch_description():
                 "model_path": LaunchConfiguration("model_path"),
                 # "qnn_lib_dir": LaunchConfiguration("qnn_lib_dir"),
                 "image_topic": LaunchConfiguration("image_topic"),
+                "score_threshold": LaunchConfiguration("score_threshold"),
             },
         ],
         output="screen",
@@ -57,6 +64,7 @@ def generate_launch_description():
             model_path_arg,
             image_topic_arg,
             qnn_lib_dir_arg,
+            score_threshold_arg,
             detector_node,
         ]
     )
