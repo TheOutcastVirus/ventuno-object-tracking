@@ -1,0 +1,31 @@
+robot_tracker:
+  ros__parameters:
+    # Frame geometry — must match the camera's published image size, since the
+    # detector reports bounding boxes in original-image pixels.
+    image_width: 1920
+    image_height: 1080
+
+    # Proportional control gains.
+    angular_gain: 1.2          # turn effort per unit horizontal error [-1..1]
+    linear_gain: 0.8           # drive effort per unit bbox-fill error
+
+    # Following distance: desired target bbox height as a fraction of image height.
+    # Larger value = robot keeps the target closer/bigger in frame.
+    target_bbox_fill: 0.5
+
+    # Speed caps (keep low for first runs).
+    max_linear_speed: 0.20     # m/s (forward and reverse)
+    max_angular_speed: 1.0     # rad/s
+
+    # Ignore tiny errors to avoid jitter.
+    angular_deadband: 0.05     # normalized horizontal error
+    distance_deadband: 0.05    # bbox-fill error
+
+    # Lost-target handling.
+    lost_timeout: 0.6          # s without a target before we stop following
+    search_grace: 0.5          # s to wait (stopped) before search rotation
+    search_angular_speed: 0.4  # rad/s in-place rotation to re-acquire
+
+    control_rate: 20.0         # Hz control loop
+    cmd_vel_topic: "/cmd_vel"  # TurtleBot 4 Create 3 base (geometry_msgs/Twist)
+    publish_cmd_vel: true      # false = dry run (log commands, don't move)

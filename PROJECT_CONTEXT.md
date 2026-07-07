@@ -14,7 +14,7 @@ Build a simple object tracking demo running on a TurtleBot 4 robot, replacing th
 - Running a version of Ubuntu 24.04 by Qualcomm
 - Will replace the stock Raspberry Pi 4 on the TurtleBot 4
 
-### Clearpath TurtleBot 4
+### Clearpath TurtleBot 4 Lite
 - Mobile robot platform by Clearpath Robotics
 - Stock setup: Raspberry Pi running Ubuntu 22.04
   - Raspberry Pi communicates with robot drive hardware over USB

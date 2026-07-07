@@ -8,35 +8,38 @@
 #include <functional>
 #include <stdexcept>
 
-#include <cv_bridge/cv_bridge.hpp>
+#include <cv_bridge/cv_bridge/cv_bridge.hpp>
 #include <opencv2/core.hpp>
-#include <sensor_msgs/image_encodings.hpp>
+#include <sensor_msgs/sensor_msgs/image_encodings.hpp>
 
 namespace oak_camera
 {
 
-// Full struct definition — DAI types are completely contained here
+// Full struct definition — DAI types are completely contained here.
+// In depthai v3, Pipeline owns the implicit Device and all node graph state.
+// Queues are created directly from Node::Output, not via XLinkOut or device->getOutputQueue.
 struct OakCameraNode::DaiResources
 {
   dai::Pipeline pipeline;
-  std::shared_ptr<dai::Device> device;
 
-  // Derive the queue type from what getOutputQueue actually returns —
-  // avoids hard-coding DataOutputQueue/DataQueue which changed between versions.
-  using QueuePtr = decltype(std::declval<dai::Device>().getOutputQueue("", 4, false));
-  QueuePtr rgb_queue;
-  QueuePtr left_queue;
-  QueuePtr right_queue;
+  std::shared_ptr<dai::MessageQueue> rgb_queue;
+  std::shared_ptr<dai::MessageQueue> left_queue;
+  std::shared_ptr<dai::MessageQueue> right_queue;
 };
 
 OakCameraNode::OakCameraNode(const rclcpp::NodeOptions & options)
 : Node("oak_camera_node", options)
 {
-  dai_ = std::make_unique<DaiResources>();
-
   declareParameters();
-  buildPipeline();
-  startDevice();
+
+  try {
+    // Pipeline() with default createImplicitDevice=true connects to the OAK device.
+    dai_ = std::make_unique<DaiResources>();
+    buildPipeline();
+    startDevice();
+  } catch (const std::exception & e) {
+    throw std::runtime_error(std::string("Failed to initialize OAK device: ") + e.what());
+  }
 
   // Null-deleter shared_ptr so ImageTransport can hold a shared_ptr<Node>
   // without taking ownership. Safe because ImageTransport is stack-local here.
@@ -61,7 +64,7 @@ OakCameraNode::OakCameraNode(const rclcpp::NodeOptions & options)
   }
 
   using namespace std::chrono_literals;
-  timer_ = create_wall_timer(10ms, std::bind(&OakCameraNode::publishLoop, this));
+  timer_ = create_wall_timer(5ms, std::bind(&OakCameraNode::publishLoop, this));
 
   RCLCPP_INFO(get_logger(), "OAK camera node started. rgb=%d left=%d right=%d",
     enable_rgb_, enable_left_, enable_right_);
@@ -72,9 +75,7 @@ OakCameraNode::~OakCameraNode()
   if (timer_) {
     timer_->cancel();
   }
-  if (dai_ && dai_->device) {
-    dai_->device->close();
-  }
+  // dai_ RAII: Pipeline destructor closes the device.
 }
 
 void OakCameraNode::declareParameters()
@@ -107,69 +108,53 @@ void OakCameraNode::declareParameters()
 
 void OakCameraNode::buildPipeline()
 {
+  // Use the v3 Camera node for all sensors. ColorCamera/MonoCamera are deprecated
+  // and broken: they mis-negotiate ISP scaling, causing the firmware to crash with
+  // "post-proc expected WxH, received NxM". Camera::requestOutput() declares the
+  // desired output size before build() locks in ISP configuration, avoiding the
+  // mismatch. rgb_output_ (video/isp/preview) is no longer meaningful with the
+  // unified Camera API and is intentionally ignored.
+
   if (enable_rgb_) {
-    auto cam_rgb  = dai_->pipeline.create<dai::node::ColorCamera>();
-    auto xout_rgb = dai_->pipeline.create<dai::node::XLinkOut>();
-
-    xout_rgb->setStreamName("rgb");
-
-    cam_rgb->setBoardSocket(dai::CameraBoardSocket::CAM_A);
-    cam_rgb->setResolution(dai::ColorCameraProperties::SensorResolution::THE_1080_P);
-    cam_rgb->setFps(static_cast<float>(rgb_fps_));
-    cam_rgb->setColorOrder(dai::ColorCameraProperties::ColorOrder::BGR);
-
-    if (rgb_output_ == "preview") {
-      cam_rgb->setPreviewSize(rgb_width_, rgb_height_);
-      cam_rgb->preview.link(xout_rgb->input);
-    } else if (rgb_output_ == "isp") {
-      cam_rgb->isp.link(xout_rgb->input);
-    } else {
-      cam_rgb->video.link(xout_rgb->input);
-    }
+    auto cam = dai_->pipeline.create<dai::node::Camera>();
+    cam->build(dai::CameraBoardSocket::CAM_A);
+    auto * out = cam->requestOutput(
+      {static_cast<uint32_t>(rgb_width_), static_cast<uint32_t>(rgb_height_)},
+      std::nullopt,
+      dai::ImgResizeMode::CROP,
+      static_cast<float>(rgb_fps_));
+    // depth=1 non-blocking: always hold only the newest frame; older frames are
+    // dropped immediately rather than queuing up and adding display lag.
+    dai_->rgb_queue = out->createOutputQueue(1, false);
   }
 
   if (enable_left_) {
-    auto cam_left  = dai_->pipeline.create<dai::node::MonoCamera>();
-    auto xout_left = dai_->pipeline.create<dai::node::XLinkOut>();
-
-    xout_left->setStreamName("left");
-
-    cam_left->setBoardSocket(dai::CameraBoardSocket::CAM_B);
-    cam_left->setResolution(dai::MonoCameraProperties::SensorResolution::THE_400_P);
-    cam_left->setFps(static_cast<float>(mono_fps_));
-    cam_left->out.link(xout_left->input);
+    auto cam = dai_->pipeline.create<dai::node::Camera>();
+    cam->build(dai::CameraBoardSocket::CAM_B);
+    auto * out = cam->requestOutput(
+      {static_cast<uint32_t>(mono_width_), static_cast<uint32_t>(mono_height_)},
+      std::nullopt,
+      dai::ImgResizeMode::CROP,
+      static_cast<float>(mono_fps_));
+    dai_->left_queue = out->createOutputQueue(1, false);
   }
 
   if (enable_right_) {
-    auto cam_right  = dai_->pipeline.create<dai::node::MonoCamera>();
-    auto xout_right = dai_->pipeline.create<dai::node::XLinkOut>();
-
-    xout_right->setStreamName("right");
-
-    cam_right->setBoardSocket(dai::CameraBoardSocket::CAM_C);
-    cam_right->setResolution(dai::MonoCameraProperties::SensorResolution::THE_400_P);
-    cam_right->setFps(static_cast<float>(mono_fps_));
-    cam_right->out.link(xout_right->input);
+    auto cam = dai_->pipeline.create<dai::node::Camera>();
+    cam->build(dai::CameraBoardSocket::CAM_C);
+    auto * out = cam->requestOutput(
+      {static_cast<uint32_t>(mono_width_), static_cast<uint32_t>(mono_height_)},
+      std::nullopt,
+      dai::ImgResizeMode::CROP,
+      static_cast<float>(mono_fps_));
+    dai_->right_queue = out->createOutputQueue(1, false);
   }
 }
 
 void OakCameraNode::startDevice()
 {
-  try {
-    dai_->device = std::make_shared<dai::Device>(dai_->pipeline);
-  } catch (const std::exception & e) {
-    throw std::runtime_error(std::string("Failed to open OAK device: ") + e.what());
-  }
-
-  if (enable_rgb_) {
-    dai_->rgb_queue = dai_->device->getOutputQueue("rgb", 4, false);
-  }
-  if (enable_left_) {
-    dai_->left_queue = dai_->device->getOutputQueue("left", 4, false);
-  }
-  if (enable_right_) {
-    dai_->right_queue = dai_->device->getOutputQueue("right", 4, false);
-  }
+  // In v3, pipeline.start() triggers firmware upload and begins streaming.
+  dai_->pipeline.start();
 }
 
 static sensor_msgs::msg::Image::SharedPtr toImageMsg(
@@ -179,21 +164,27 @@ static sensor_msgs::msg::Image::SharedPtr toImageMsg(
 {
   auto msg = std::make_shared<sensor_msgs::msg::Image>();
 
-  auto tp = std::chrono::time_point_cast<std::chrono::nanoseconds>(
-    std::chrono::steady_clock::now());
+  // Use the frame's hardware capture timestamp rather than the receive time.
+  // This reflects when the sensor actually captured the image; steady_clock::now()
+  // would add USB transfer + scheduling jitter to every stamp.
+  auto tp = std::chrono::time_point_cast<std::chrono::nanoseconds>(frame->getTimestamp());
   auto ns = tp.time_since_epoch().count();
   msg->header.stamp.sec     = static_cast<int32_t>(ns / 1'000'000'000LL);
   msg->header.stamp.nanosec = static_cast<uint32_t>(ns % 1'000'000'000LL);
   msg->header.frame_id = frame_id;
 
-  msg->height   = frame->getHeight();
-  msg->width    = frame->getWidth();
+  // getCvFrame() handles all pixel format conversions (NV12, YUV, BGR888i, RAW8, …)
+  // and returns a properly-typed cv::Mat (BGR for color, GRAY for mono).
+  cv::Mat cv_frame = frame->getCvFrame();
+
+  msg->height = static_cast<uint32_t>(cv_frame.rows);
+  msg->width  = static_cast<uint32_t>(cv_frame.cols);
   msg->encoding = encoding;
-  msg->step     = static_cast<uint32_t>(frame->getData().size() / frame->getHeight());
+  msg->step = static_cast<uint32_t>(cv_frame.step[0]);
   msg->is_bigendian = false;
 
-  const auto & data = frame->getData();
-  msg->data.assign(data.begin(), data.end());
+  const auto * data_ptr = cv_frame.ptr<uint8_t>();
+  msg->data.assign(data_ptr, data_ptr + cv_frame.total() * cv_frame.elemSize());
 
   return msg;
 }

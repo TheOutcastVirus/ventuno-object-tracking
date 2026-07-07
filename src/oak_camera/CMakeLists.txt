@@ -15,10 +15,12 @@ find_package(camera_info_manager REQUIRED)
 find_package(cv_bridge REQUIRED)
 
 # ── DepthAI v3 ────────────────────────────────────────────────────────────────
-# depthai-core must be installed on the target (Ventuno / dev machine).
-# Install via:  sudo apt install libdepthai-dev   (if packaged)
-# or build from source and set depthai_DIR to the cmake install prefix.
-find_package(depthai_v3 REQUIRED)
+# Installed via ros-jazzy-depthai-v3. The cmake config in the lib directory
+# exports depthai_v3::core with headers and linked libraries.
+find_package(depthai_v3 REQUIRED CONFIG
+  PATHS /opt/ros/jazzy/lib/aarch64-linux-gnu/cmake/depthai_v3
+  NO_DEFAULT_PATH
+)
 
 # ── Node executable ───────────────────────────────────────────────────────────
 add_executable(oak_camera_node
