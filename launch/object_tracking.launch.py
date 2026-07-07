@@ -1,10 +1,17 @@
 """Full object-tracking demo: OAK camera -> YOLOX detector -> TurtleBot 4 follower.
 
-Starts three nodes:
+Starts four nodes:
+  * create3_repub     — bridges the Create 3 base (its topics live in _do_not_use)
+                        to clean root topics, so /cmd_vel actually reaches the base
   * oak_camera_node   — publishes RGB on /oak/rgb/image_raw
   * yolox_detector    — detects, locks a single `target_class`, publishes
                         /detections, /detections/image and /tracked_object
   * robot_tracker     — drives the base (/cmd_vel) to follow /tracked_object
+
+Because we replace the TurtleBot 4's Raspberry Pi, we must run create3_republisher
+ourselves — it is the node that relays /cmd_vel down to the Create 3 base and
+republishes /odom, /tf, /imu, etc. up to the ROS 2 network. Requires the DDS
+environment to match the base: ROS_DOMAIN_ID and RMW_IMPLEMENTATION=rmw_fastrtps_cpp.
 
 Defaults to the NPU (QNN) backend, since only models/yolox_tiny_qnn.pte exists on
 disk (the CPU .pte is not present). Switch the followed object at runtime with:
@@ -14,11 +21,14 @@ Examples:
     ros2 launch object_tracking.launch.py
     ros2 launch object_tracking.launch.py target_class:=bottle
     ros2 launch object_tracking.launch.py publish_cmd_vel:=false   # dry run
+    ros2 launch object_tracking.launch.py enable_republisher:=false  # base bridged elsewhere
     ros2 launch object_tracking.launch.py backend:=cpu model_path:=models/yolox_tiny_xnnpack.pte
 """
 
 from launch import LaunchDescription
-from launch.actions import DeclareLaunchArgument
+from launch.actions import DeclareLaunchArgument, IncludeLaunchDescription
+from launch.conditions import IfCondition
+from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.substitutions import LaunchConfiguration, PathJoinSubstitution
 from launch_ros.actions import Node
 from launch_ros.parameter_descriptions import ParameterValue
@@ -54,6 +64,34 @@ def generate_launch_description():
     cmd_vel_topic_arg = DeclareLaunchArgument(
         "cmd_vel_topic", default_value="/cmd_vel",
         description="Velocity topic for the TurtleBot 4 base (geometry_msgs/Twist)")
+
+    enable_republisher_arg = DeclareLaunchArgument(
+        "enable_republisher", default_value="true",
+        description="Run create3_republisher to bridge the Create 3 base. Set false "
+                    "if the base is bridged elsewhere or configured without _do_not_use")
+
+    robot_ns_arg = DeclareLaunchArgument(
+        "robot_ns", default_value="/_do_not_use",
+        description="Namespace the Create 3 publishes its raw topics under "
+                    "(stock TurtleBot 4 on Jazzy uses /_do_not_use)")
+
+    republisher_ns_arg = DeclareLaunchArgument(
+        "republisher_ns", default_value="/",
+        description="Namespace the bridged clean topics (/cmd_vel, /odom, ...) appear "
+                    "under. Must differ from robot_ns")
+
+    # Bridge the Create 3 base: relays /cmd_vel down to the base and republishes
+    # /odom, /tf, /imu, ... up. Reuses the package's own launch file.
+    create3_republisher = IncludeLaunchDescription(
+        PythonLaunchDescriptionSource(PathJoinSubstitution(
+            [FindPackageShare("create3_republisher"), "bringup",
+             "create3_republisher_launch.py"])),
+        launch_arguments={
+            "robot_ns": LaunchConfiguration("robot_ns"),
+            "republisher_ns": LaunchConfiguration("republisher_ns"),
+        }.items(),
+        condition=IfCondition(LaunchConfiguration("enable_republisher")),
+    )
 
     camera_params = PathJoinSubstitution(
         [FindPackageShare("oak_camera"), "config", "camera.yaml"])
@@ -110,6 +148,10 @@ def generate_launch_description():
         qnn_lib_dir_arg,
         publish_cmd_vel_arg,
         cmd_vel_topic_arg,
+        enable_republisher_arg,
+        robot_ns_arg,
+        republisher_ns_arg,
+        create3_republisher,
         camera_node,
         detector_node,
         tracker_node,

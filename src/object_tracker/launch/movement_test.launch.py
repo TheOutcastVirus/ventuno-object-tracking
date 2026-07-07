@@ -1,13 +1,14 @@
-"""Follower node + Create 3 base bridge.
+"""Drive test: create3_republisher (base bridge) + movement_test.
 
-Runs robot_tracker (publishes /cmd_vel to follow /tracked_object) and, by default,
-create3_republisher — the node that relays /cmd_vel down to the Create 3 base and
-republishes /odom, /tf, /imu, ... up. Since we replace the TurtleBot 4's Raspberry
-Pi, this bridge is not running for us unless we start it. Requires the DDS
-environment to match the base (ROS_DOMAIN_ID, RMW_IMPLEMENTATION=rmw_fastrtps_cpp).
+Self-contained check that the robot moves. Brings up the Create 3 bridge (so
+/cmd_vel reaches the base) and runs the open-loop movement_test sequence. Requires
+the DDS environment to match the base (ROS_DOMAIN_ID, RMW_IMPLEMENTATION=rmw_fastrtps_cpp).
 
-Set enable_republisher:=false if the base is bridged elsewhere or has been
-configured without the _do_not_use namespace so /cmd_vel is already reachable.
+    ros2 launch object_tracker movement_test.launch.py
+    ros2 launch object_tracker movement_test.launch.py linear_speed:=0.1 repeat:=true
+    ros2 launch object_tracker movement_test.launch.py enable_republisher:=false  # bridge already up
+
+Make sure the robot has clearance (open floor or up on blocks). Ctrl-C stops it.
 """
 
 from launch import LaunchDescription
@@ -21,13 +22,21 @@ from launch_ros.substitutions import FindPackageShare
 
 
 def generate_launch_description():
-    publish_cmd_vel_arg = DeclareLaunchArgument(
-        "publish_cmd_vel", default_value="true",
-        description="false = dry run: compute and log Twist without moving the robot")
-
     cmd_vel_topic_arg = DeclareLaunchArgument(
         "cmd_vel_topic", default_value="/cmd_vel",
         description="Velocity topic for the TurtleBot 4 base (geometry_msgs/Twist)")
+
+    linear_speed_arg = DeclareLaunchArgument(
+        "linear_speed", default_value="0.15",
+        description="Forward/back speed during the test (m/s)")
+
+    angular_speed_arg = DeclareLaunchArgument(
+        "angular_speed", default_value="0.6",
+        description="Rotation speed during the test (rad/s)")
+
+    repeat_arg = DeclareLaunchArgument(
+        "repeat", default_value="false",
+        description="Loop the sequence forever instead of running once")
 
     enable_republisher_arg = DeclareLaunchArgument(
         "enable_republisher", default_value="true",
@@ -44,9 +53,6 @@ def generate_launch_description():
         description="Namespace the bridged clean topics (/cmd_vel, /odom, ...) appear "
                     "under. Must differ from robot_ns")
 
-    params_file = PathJoinSubstitution(
-        [FindPackageShare("object_tracker"), "config", "tracker.yaml"])
-
     create3_republisher = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(PathJoinSubstitution(
             [FindPackageShare("create3_republisher"), "bringup",
@@ -58,27 +64,30 @@ def generate_launch_description():
         condition=IfCondition(LaunchConfiguration("enable_republisher")),
     )
 
-    tracker_node = Node(
+    movement_test_node = Node(
         package="object_tracker",
-        executable="robot_tracker",
-        name="robot_tracker",
-        parameters=[
-            params_file,
-            {
-                "publish_cmd_vel": ParameterValue(
-                    LaunchConfiguration("publish_cmd_vel"), value_type=bool),
-                "cmd_vel_topic": LaunchConfiguration("cmd_vel_topic"),
-            },
-        ],
+        executable="movement_test",
+        name="movement_test",
+        parameters=[{
+            "cmd_vel_topic": LaunchConfiguration("cmd_vel_topic"),
+            "linear_speed": ParameterValue(
+                LaunchConfiguration("linear_speed"), value_type=float),
+            "angular_speed": ParameterValue(
+                LaunchConfiguration("angular_speed"), value_type=float),
+            "repeat": ParameterValue(
+                LaunchConfiguration("repeat"), value_type=bool),
+        }],
         output="screen",
     )
 
     return LaunchDescription([
-        publish_cmd_vel_arg,
         cmd_vel_topic_arg,
+        linear_speed_arg,
+        angular_speed_arg,
+        repeat_arg,
         enable_republisher_arg,
         robot_ns_arg,
         republisher_ns_arg,
         create3_republisher,
-        tracker_node,
+        movement_test_node,
     ])

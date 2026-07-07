@@ -26,6 +26,7 @@ setup(
     entry_points={
         'console_scripts': [
             'robot_tracker = object_tracker.robot_tracker:main',
+            'movement_test = object_tracker.movement_test:main',
         ],
     },
 )
