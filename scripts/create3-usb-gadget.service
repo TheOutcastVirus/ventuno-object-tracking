@@ -1,0 +1,18 @@
+[Unit]
+Description=Create 3 USB-ethernet gadget (usb0 -> 192.168.186.3, base 192.168.186.2)
+Documentation=file:///home/ubuntu/Documents/ventuno-object-tracking/docs/create3_connection.md
+# Bring the gadget up early, before the network is considered ready.
+DefaultDependencies=no
+After=sys-kernel-config.mount
+Wants=sys-kernel-config.mount
+Before=network-pre.target
+Wants=network-pre.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/home/ubuntu/Documents/ventuno-object-tracking/scripts/create3_usb_gadget.sh
+ExecStop=/home/ubuntu/Documents/ventuno-object-tracking/scripts/create3_usb_gadget.sh down
+
+[Install]
+WantedBy=multi-user.target
