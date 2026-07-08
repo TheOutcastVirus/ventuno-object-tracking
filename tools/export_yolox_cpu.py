@@ -30,9 +30,8 @@ def main() -> None:
     print("Building model ...")
     model = build_model(num_classes)
 
-    # Optionally load pretrained weights:
-    # ckpt = torch.load("yolox_tiny.pth", map_location="cpu")
-    # model.load_state_dict(ckpt["model"])
+    ckpt = torch.load("models/yolox_tiny.pth", map_location="cpu")
+    model.load_state_dict(ckpt["model"] if "model" in ckpt else ckpt)
 
     example_input = (torch.zeros(1, 3, input_h, input_w),)
 
