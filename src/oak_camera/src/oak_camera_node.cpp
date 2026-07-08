@@ -126,6 +126,8 @@ void OakCameraNode::buildPipeline()
     // depth=1 non-blocking: always hold only the newest frame; older frames are
     // dropped immediately rather than queuing up and adding display lag.
     dai_->rgb_queue = out->createOutputQueue(1, false);
+    RCLCPP_INFO(get_logger(), "RGB stream: %dx%d @ %.1f fps -> '%s'",
+      rgb_width_, rgb_height_, rgb_fps_, rgb_topic_.c_str());
   }
 
   if (enable_left_) {
@@ -137,6 +139,8 @@ void OakCameraNode::buildPipeline()
       dai::ImgResizeMode::CROP,
       static_cast<float>(mono_fps_));
     dai_->left_queue = out->createOutputQueue(1, false);
+    RCLCPP_INFO(get_logger(), "Left stream: %dx%d @ %.1f fps -> '%s'",
+      mono_width_, mono_height_, mono_fps_, left_topic_.c_str());
   }
 
   if (enable_right_) {
@@ -148,6 +152,8 @@ void OakCameraNode::buildPipeline()
       dai::ImgResizeMode::CROP,
       static_cast<float>(mono_fps_));
     dai_->right_queue = out->createOutputQueue(1, false);
+    RCLCPP_INFO(get_logger(), "Right stream: %dx%d @ %.1f fps -> '%s'",
+      mono_width_, mono_height_, mono_fps_, right_topic_.c_str());
   }
 }
 

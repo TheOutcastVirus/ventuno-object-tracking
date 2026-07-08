@@ -6,9 +6,14 @@
     enable_right: false
 
     # RGB settings
+    # 640x360 keeps the native 16:9 aspect ratio (1920x1080 / 3) so the CROP
+    # resize mode doesn't cut FOV. At 1080p, NV12 over the OAK's USB2 link
+    # (~93 MB/s needed vs ~35-40 MB/s available) was the frame-rate bottleneck;
+    # 640x360 NV12 needs only ~10 MB/s and the detector resizes to 416x416
+    # regardless, so no detection quality is lost.
     rgb_fps: 30.0
-    rgb_width: 1920
-    rgb_height: 1080
+    rgb_width: 640
+    rgb_height: 360
     # "video" | "preview" | "isp"
     rgb_output: "video"
 
