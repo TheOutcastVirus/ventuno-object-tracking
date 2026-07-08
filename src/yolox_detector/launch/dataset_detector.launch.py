@@ -11,8 +11,8 @@ def generate_launch_description():
         description="Inference backend: 'cpu' (XNNPACK) or 'npu' (QNN HTP)")
 
     model_path_arg = DeclareLaunchArgument(
-        "model_path", default_value="models/yolox_tiny_qnn.pte",
-        description="Path to .pte model file")
+        "model_path", default_value="",
+        description="Path to .pte model file; empty selects the default for the backend")
 
     dataset_path_arg = DeclareLaunchArgument(
         "dataset_path", default_value="datasets/sample_images",

@@ -51,7 +51,7 @@ YoloxDetectorNode::YoloxDetectorNode(const rclcpp::NodeOptions & options)
 {
   // ── Parameters ──────────────────────────────────────────────────────────────
   this->declare_parameter("backend", std::string("cpu"));
-  this->declare_parameter("model_path", std::string("models/yolox_tiny_xnnpack.pte"));
+  this->declare_parameter("model_path", std::string(""));
   this->declare_parameter("qnn_lib_dir", std::string(""));
   this->declare_parameter("input_width", 416);
   this->declare_parameter("input_height", 416);
@@ -94,6 +94,13 @@ YoloxDetectorNode::YoloxDetectorNode(const rclcpp::NodeOptions & options)
   num_classes_     = this->get_parameter("num_classes").as_int();
 
   // ── Backend ──────────────────────────────────────────────────────────────────
+  if (model_path.empty()) {
+    if (backend_name == "cpu") {
+      model_path = "models/yolox_tiny_xnnpack.pte";
+    } else if (backend_name == "npu") {
+      model_path = "models/yolox_tiny_qnn.pte";
+    }
+  }
   if (backend_name == "cpu") {
     backend_ = std::make_unique<CpuBackend>(in_w, in_h);
   } else if (backend_name == "npu") {

@@ -15,8 +15,8 @@ def generate_launch_description():
 
     model_path_arg = DeclareLaunchArgument(
         "model_path",
-        default_value="models/yolox_tiny_qnn.pte",
-        description="Path to .pte model file",
+        default_value="",
+        description="Path to .pte model file; empty selects the default for the backend",
     )
 
     image_topic_arg = DeclareLaunchArgument(

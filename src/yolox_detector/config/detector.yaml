@@ -1,7 +1,7 @@
 yolox_detector:
   ros__parameters:
     backend: "cpu"  # "cpu" (XNNPACK) or "npu" (QNN HTP)
-    model_path: "models/yolox_tiny_xnnpack.pte"
+    model_path: ""  # Empty selects the default model for the chosen backend.
     qnn_lib_dir: ""
     input_width: 416
     input_height: 416

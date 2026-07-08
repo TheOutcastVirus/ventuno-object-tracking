@@ -42,6 +42,22 @@ find_package(executorch REQUIRED)
 
 # ── Backend selection ─────────────────────────────────────────────────────────
 option(BUILD_QNN_BACKEND "Build the QTI QNN NPU backend" OFF)
+option(BUILD_XNNPACK_BACKEND "Build the ExecuTorch XNNPACK CPU backend" ON)
+
+if(BUILD_XNNPACK_BACKEND)
+  foreach(_xnnpack_target xnnpack_backend XNNPACK xnnpack-microkernels-prod)
+    if(NOT TARGET ${_xnnpack_target})
+      message(FATAL_ERROR
+        "BUILD_XNNPACK_BACKEND=ON requires an ExecuTorch build with "
+        "EXECUTORCH_BUILD_XNNPACK=ON so models/yolox_tiny_xnnpack.pte can run on CPU. "
+        "Missing target: ${_xnnpack_target}")
+    endif()
+  endforeach()
+
+  if(COMMAND executorch_target_link_options_shared_lib)
+    executorch_target_link_options_shared_lib(xnnpack_backend)
+  endif()
+endif()
 
 set(SOURCES
   src/main.cpp
@@ -78,6 +94,9 @@ target_link_libraries(yolox_detector_node
   extension_tensor
   portable_ops_lib
   ${OpenCV_LIBS}
+  $<$<BOOL:${BUILD_XNNPACK_BACKEND}>:xnnpack_backend>
+  $<$<BOOL:${BUILD_XNNPACK_BACKEND}>:XNNPACK>
+  $<$<BOOL:${BUILD_XNNPACK_BACKEND}>:xnnpack-microkernels-prod>
   $<$<BOOL:${BUILD_QNN_BACKEND}>:qnn_executorch_backend>
 )
 
