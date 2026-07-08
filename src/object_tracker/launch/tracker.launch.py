@@ -1,19 +1,20 @@
-"""Follower node + Create 3 base bridge.
+"""Follower node for the Create 3 base.
 
-Runs robot_tracker (publishes /cmd_vel to follow /tracked_object) and, by default,
-create3_republisher — the node that relays /cmd_vel down to the Create 3 base and
-republishes /odom, /tf, /imu, ... up. Since we replace the TurtleBot 4's Raspberry
-Pi, this bridge is not running for us unless we start it. Requires the DDS
-environment to match the base (ROS_DOMAIN_ID, RMW_IMPLEMENTATION=rmw_fastrtps_cpp).
+Runs robot_tracker, which publishes geometry_msgs/Twist to /cmd_vel to follow
+/tracked_object. Our Create 3 runs Iron firmware at the ROOT namespace, so its
+motion_control node subscribes to /cmd_vel directly -- no create3_republisher and
+no /_do_not_use bridge is needed. The base is reached over the USB-ethernet gadget
+link (usb0); see scripts/create3_usb_gadget.sh and docs/create3_connection.md.
 
-Set enable_republisher:=false if the base is bridged elsewhere or has been
-configured without the _do_not_use namespace so /cmd_vel is already reachable.
+Requires the DDS environment to match the base (set in ~/.bashrc):
+  ROS_DOMAIN_ID=0, RMW_IMPLEMENTATION=rmw_fastrtps_cpp,
+  FASTRTPS_DEFAULT_PROFILES_FILE=scripts/fastdds_usb0.xml
+
+Set publish_cmd_vel:=false for a dry run (compute and log Twist without moving).
 """
 
 from launch import LaunchDescription
-from launch.actions import DeclareLaunchArgument, IncludeLaunchDescription
-from launch.conditions import IfCondition
-from launch.launch_description_sources import PythonLaunchDescriptionSource
+from launch.actions import DeclareLaunchArgument
 from launch.substitutions import LaunchConfiguration, PathJoinSubstitution
 from launch_ros.actions import Node
 from launch_ros.parameter_descriptions import ParameterValue
@@ -27,36 +28,10 @@ def generate_launch_description():
 
     cmd_vel_topic_arg = DeclareLaunchArgument(
         "cmd_vel_topic", default_value="/cmd_vel",
-        description="Velocity topic for the TurtleBot 4 base (geometry_msgs/Twist)")
-
-    enable_republisher_arg = DeclareLaunchArgument(
-        "enable_republisher", default_value="true",
-        description="Run create3_republisher to bridge the Create 3 base. Set false "
-                    "if the base is bridged elsewhere or configured without _do_not_use")
-
-    robot_ns_arg = DeclareLaunchArgument(
-        "robot_ns", default_value="/_do_not_use",
-        description="Namespace the Create 3 publishes its raw topics under "
-                    "(stock TurtleBot 4 on Jazzy uses /_do_not_use)")
-
-    republisher_ns_arg = DeclareLaunchArgument(
-        "republisher_ns", default_value="/",
-        description="Namespace the bridged clean topics (/cmd_vel, /odom, ...) appear "
-                    "under. Must differ from robot_ns")
+        description="Velocity topic the Create 3 subscribes to (geometry_msgs/Twist)")
 
     params_file = PathJoinSubstitution(
         [FindPackageShare("object_tracker"), "config", "tracker.yaml"])
-
-    create3_republisher = IncludeLaunchDescription(
-        PythonLaunchDescriptionSource(PathJoinSubstitution(
-            [FindPackageShare("create3_republisher"), "bringup",
-             "create3_republisher_launch.py"])),
-        launch_arguments={
-            "robot_ns": LaunchConfiguration("robot_ns"),
-            "republisher_ns": LaunchConfiguration("republisher_ns"),
-        }.items(),
-        condition=IfCondition(LaunchConfiguration("enable_republisher")),
-    )
 
     tracker_node = Node(
         package="object_tracker",
@@ -76,9 +51,5 @@ def generate_launch_description():
     return LaunchDescription([
         publish_cmd_vel_arg,
         cmd_vel_topic_arg,
-        enable_republisher_arg,
-        robot_ns_arg,
-        republisher_ns_arg,
-        create3_republisher,
         tracker_node,
     ])
