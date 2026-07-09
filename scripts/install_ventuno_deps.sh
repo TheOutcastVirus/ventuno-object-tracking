@@ -18,7 +18,8 @@ EXECUTORCH_VENV="${EXECUTORCH_VENV:-$HOME/.venv/executorch}"
 ROS_DOMAIN_ID_VALUE="${ROS_DOMAIN_ID_VALUE:-0}"
 
 INSTALL_EXPORT_PYTHON_DEPS=0
-SKIP_MODELS=0
+DOWNLOAD_YOLOX_WEIGHTS=0
+SKIP_SAMPLE_IMAGES=0
 SKIP_ROSDEP=0
 SKIP_CREATE3_SERVICE=0
 SKIP_WORKSPACE_BUILD=0
@@ -35,14 +36,16 @@ usage() {
 Usage: bash scripts/install_ventuno_deps.sh [options]
 
 Installs Ubuntu/ROS 2 Jazzy dependencies, project Python dependencies, board
-environment, DDS tuning, Create 3 USB gadget service, sample assets, clones
+environment, DDS tuning, Create 3 USB gadget service, sample images, clones
 ExecuTorch into /opt/executorch, builds it, and then builds the ROS workspace.
 
 Options:
   --executorch-ref REF        Optional branch/tag/commit to checkout after clone.
   --qnn-sdk-root PATH         QAIRT/QNN SDK root. Defaults to newest /opt/qcom/aistack/qairt/*.
   --with-export-python-deps   Install requirements-export.txt into the project venv.
-  --skip-models               Do not download YOLOX weights or sample images.
+  --download-yolox-weights    Download YOLOX .pth weights. Off by default; pre-exported .pte is expected.
+  --skip-sample-images        Do not download sample COCO images for dataset launches.
+  --skip-models               Compatibility alias for --skip-sample-images.
   --skip-rosdep               Do not run rosdep install.
   --skip-create3-service      Do not install/enable the Create 3 USB gadget service.
   --skip-workspace-build      Do not run colcon build.
@@ -69,7 +72,8 @@ while [ "$#" -gt 0 ]; do
     --executorch-ref) EXECUTORCH_REF="${2:?missing ref}"; shift ;;
     --qnn-sdk-root) QNN_SDK_ROOT="${2:?missing path}"; shift ;;
     --with-export-python-deps) INSTALL_EXPORT_PYTHON_DEPS=1 ;;
-    --skip-models) SKIP_MODELS=1 ;;
+    --download-yolox-weights) DOWNLOAD_YOLOX_WEIGHTS=1 ;;
+    --skip-sample-images|--skip-models) SKIP_SAMPLE_IMAGES=1 ;;
     --skip-rosdep) SKIP_ROSDEP=1 ;;
     --skip-create3-service) SKIP_CREATE3_SERVICE=1 ;;
     --skip-workspace-build) SKIP_WORKSPACE_BUILD=1 ;;
@@ -427,15 +431,22 @@ setup_project_python() {
   fi
 }
 
-download_assets() {
-  if [ "$SKIP_MODELS" -eq 1 ]; then
+setup_assets() {
+  log "Preparing model and dataset directories"
+  as_target_user mkdir -p "$PROJECT_ROOT/models" "$PROJECT_ROOT/datasets/sample_images"
+
+  if [ "$DOWNLOAD_YOLOX_WEIGHTS" -eq 1 ]; then
+    log "Downloading YOLOX weights"
+    as_target_user bash -lc "cd $(q "$PROJECT_ROOT") && source $(q "$PROJECT_VENV/bin/activate") && python scripts/download_models.py --skip-export"
+  else
+    log "Skipping YOLOX weight download; expecting pre-exported models in $PROJECT_ROOT/models"
+  fi
+
+  if [ "$SKIP_SAMPLE_IMAGES" -eq 1 ]; then
     return
   fi
 
-  log "Downloading YOLOX weights and sample images"
-  as_target_user bash -lc "cd $(q "$PROJECT_ROOT") && source $(q "$PROJECT_VENV/bin/activate") && python scripts/download_models.py --skip-export"
-
-  as_target_user mkdir -p "$PROJECT_ROOT/datasets/sample_images"
+  log "Downloading sample COCO images"
   local id dest
   for id in 000000000139 000000000285 000000000632 000000000724 000000000785; do
     dest="$PROJECT_ROOT/datasets/sample_images/${id}.jpg"
@@ -602,7 +613,7 @@ main() {
   install_create3_service
   setup_rosdep
   setup_project_python
-  download_assets
+  setup_assets
   ensure_executorch_checkout
   build_executorch
   build_workspace
