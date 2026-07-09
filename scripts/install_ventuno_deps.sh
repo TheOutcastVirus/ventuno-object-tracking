@@ -637,7 +637,7 @@ build_executorch() {
     -DPYTHON_EXECUTABLE=$(q "$EXECUTORCH_VENV/bin/python")"
 
   as_target_user bash -lc "cd $(q "$EXECUTORCH_ROOT") && source $(q "$EXECUTORCH_VENV/bin/activate") && cmake --build build-x86 --target install -j\"\$(nproc)\""
-  as_target_user bash -lc "cd $(q "$EXECUTORCH_ROOT") && mkdir -p backends/qualcomm/python exir/_serialize && cp -fv build-x86/backends/qualcomm/Py* backends/qualcomm/python/ && cp -fv schema/program.fbs exir/_serialize/program.fbs && cp -fv schema/scalar_type.fbs exir/_serialize/scalar_type.fbs && if [ -f build-x86/kernels/quantized/libquantized_ops_aot_lib.so ]; then cp -fv build-x86/kernels/quantized/libquantized_ops_aot_lib.so kernels/quantized/; fi"
+  as_target_user bash -lc "cd $(q "$EXECUTORCH_ROOT") && mkdir -p backends/qualcomm/python exir/_serialize kernels/quantized && if compgen -G 'build-x86/backends/qualcomm/Py*' >/dev/null; then cp -fv build-x86/backends/qualcomm/Py* backends/qualcomm/python/; else echo 'WARN: no ExecuTorch Qualcomm Python artifacts found under build-x86/backends/qualcomm/Py*; continuing because they are only needed for Python export' >&2; fi && cp -fv schema/program.fbs exir/_serialize/program.fbs && cp -fv schema/scalar_type.fbs exir/_serialize/scalar_type.fbs && if [ -f build-x86/kernels/quantized/libquantized_ops_aot_lib.so ]; then cp -fv build-x86/kernels/quantized/libquantized_ops_aot_lib.so kernels/quantized/; fi"
 
   test -f "$EXECUTORCH_ROOT/build-x86/lib/cmake/ExecuTorch/executorch-config.cmake"
   test -f "$EXECUTORCH_ROOT/build-x86/lib/cmake/ExecuTorch/ExecuTorchTargets.cmake"
