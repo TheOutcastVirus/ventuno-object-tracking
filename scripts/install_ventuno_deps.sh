@@ -16,6 +16,9 @@ EXECUTORCH_REF="${EXECUTORCH_REF:-}"
 PROJECT_VENV="${PROJECT_VENV:-$HOME/.venv/ventuno-object-tracking}"
 EXECUTORCH_VENV="${EXECUTORCH_VENV:-$HOME/.venv/executorch}"
 ROS_DOMAIN_ID_VALUE="${ROS_DOMAIN_ID_VALUE:-0}"
+QNN_SDK_VERSION="${QNN_SDK_VERSION:-2.48.0.260626}"
+QNN_SDK_URL="${QNN_SDK_URL:-https://softwarecenter.qualcomm.com/api/download/software/sdks/Qualcomm_AI_Runtime_Community/All/${QNN_SDK_VERSION}/v${QNN_SDK_VERSION}.zip}"
+QNN_SDK_ZIP="${QNN_SDK_ZIP:-}"
 
 INSTALL_EXPORT_PYTHON_DEPS=0
 DOWNLOAD_YOLOX_WEIGHTS=0
@@ -41,7 +44,9 @@ ExecuTorch into /opt/executorch, builds it, and then builds the ROS workspace.
 
 Options:
   --executorch-ref REF        Optional branch/tag/commit to checkout after clone.
-  --qnn-sdk-root PATH         QAIRT/QNN SDK root. Defaults to newest /opt/qcom/aistack/qairt/*.
+  --qnn-sdk-root PATH         QAIRT/QNN SDK root. Defaults to /opt/qcom/aistack/qairt/2.48.0.260626.
+  --qnn-sdk-url URL           QAIRT/QNN SDK zip URL to download if the SDK is missing.
+  --qnn-sdk-zip PATH          Local QAIRT/QNN SDK zip to install if the SDK is missing.
   --with-export-python-deps   Install requirements-export.txt into the project venv.
   --download-yolox-weights    Download YOLOX .pth weights. Off by default; pre-exported .pte is expected.
   --skip-sample-images        Do not download sample COCO images for dataset launches.
@@ -56,7 +61,8 @@ Options:
 
 Environment overrides:
   ROS_DISTRO, EXECUTORCH_REPO, EXECUTORCH_REF, PROJECT_VENV,
-  EXECUTORCH_VENV, QNN_SDK_ROOT, ROS_DOMAIN_ID_VALUE
+  EXECUTORCH_VENV, QNN_SDK_ROOT, QNN_SDK_VERSION, QNN_SDK_URL,
+  QNN_SDK_ZIP, ROS_DOMAIN_ID_VALUE
 EOF
 }
 
@@ -71,6 +77,8 @@ while [ "$#" -gt 0 ]; do
       ;;
     --executorch-ref) EXECUTORCH_REF="${2:?missing ref}"; shift ;;
     --qnn-sdk-root) QNN_SDK_ROOT="${2:?missing path}"; shift ;;
+    --qnn-sdk-url) QNN_SDK_URL="${2:?missing URL}"; shift ;;
+    --qnn-sdk-zip) QNN_SDK_ZIP="${2:?missing path}"; shift ;;
     --with-export-python-deps) INSTALL_EXPORT_PYTHON_DEPS=1 ;;
     --download-yolox-weights) DOWNLOAD_YOLOX_WEIGHTS=1 ;;
     --skip-sample-images|--skip-models) SKIP_SAMPLE_IMAGES=1 ;;
@@ -274,7 +282,53 @@ detect_qnn_sdk() {
     QNN_SDK_ROOT="$(find /opt/qcom/aistack/qairt -mindepth 1 -maxdepth 1 -type d | sort -V | tail -n1 || true)"
   fi
 
-  QNN_SDK_ROOT="${QNN_SDK_ROOT:-/opt/qcom/aistack/qairt/2.47.0.260601}"
+  QNN_SDK_ROOT="${QNN_SDK_ROOT:-/opt/qcom/aistack/qairt/$QNN_SDK_VERSION}"
+}
+
+qnn_sdk_looks_installed() {
+  [ -f "$QNN_SDK_ROOT/lib/aarch64-oe-linux-gcc11.2/libQnnSystem.so" ] &&
+    [ -d "$QNN_SDK_ROOT/lib/hexagon-v75/unsigned" ]
+}
+
+ensure_qnn_sdk() {
+  detect_qnn_sdk
+
+  if qnn_sdk_looks_installed; then
+    log "QAIRT/QNN SDK already installed at $QNN_SDK_ROOT"
+    return
+  fi
+
+  if [ -e "$QNN_SDK_ROOT" ] && [ -n "$(find "$QNN_SDK_ROOT" -mindepth 1 -maxdepth 1 -print -quit 2>/dev/null)" ]; then
+    die "$QNN_SDK_ROOT exists but does not look like the QAIRT/QNN SDK. Set --qnn-sdk-root to the correct path or clean the partial install."
+  fi
+
+  log "Installing QAIRT/QNN SDK into $QNN_SDK_ROOT"
+  local tmp_dir zip_path extract_dir qnn_lib sdk_root
+  tmp_dir="$(mktemp -d)"
+  zip_path="$tmp_dir/qairt.zip"
+  extract_dir="$tmp_dir/extract"
+  mkdir -p "$extract_dir"
+
+  if [ -n "$QNN_SDK_ZIP" ]; then
+    [ -f "$QNN_SDK_ZIP" ] || die "QNN SDK zip not found: $QNN_SDK_ZIP"
+    cp "$QNN_SDK_ZIP" "$zip_path"
+  else
+    log "Downloading QAIRT/QNN SDK from $QNN_SDK_URL"
+    curl -fL --retry 3 "$QNN_SDK_URL" -o "$zip_path" ||
+      die "failed to download QAIRT/QNN SDK. If the Qualcomm URL requires login, download it manually and rerun with --qnn-sdk-zip PATH."
+  fi
+
+  unzip -q "$zip_path" -d "$extract_dir" || die "failed to extract QAIRT/QNN SDK zip"
+  qnn_lib="$(find "$extract_dir" -type f -path '*/lib/aarch64-oe-linux-gcc11.2/libQnnSystem.so' | head -n1 || true)"
+  [ -n "$qnn_lib" ] || die "extracted archive does not contain lib/aarch64-oe-linux-gcc11.2/libQnnSystem.so"
+  sdk_root="$(dirname "$(dirname "$(dirname "$qnn_lib")")")"
+
+  sudo_run install -d -m 0755 "$(dirname "$QNN_SDK_ROOT")"
+  sudo_run install -d -m 0755 "$QNN_SDK_ROOT"
+  sudo_run cp -a "$sdk_root/." "$QNN_SDK_ROOT/"
+
+  rm -rf "$tmp_dir"
+  qnn_sdk_looks_installed || die "QAIRT/QNN SDK install did not produce the expected runtime libraries at $QNN_SDK_ROOT"
 }
 
 write_board_environment() {
@@ -608,6 +662,7 @@ main() {
   configure_locale
   configure_ros_apt
   install_apt_dependencies
+  ensure_qnn_sdk
   write_board_environment
   install_dds_tuning
   install_create3_service
