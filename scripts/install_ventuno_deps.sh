@@ -610,7 +610,7 @@ build_executorch() {
   log "Building ExecuTorch with Qualcomm QNN backend"
   as_target_user bash -lc "cd $(q "$EXECUTORCH_ROOT") && git submodule update --init --recursive"
   as_target_user python3 -m venv "$EXECUTORCH_VENV"
-  as_target_user bash -lc "cd $(q "$EXECUTORCH_ROOT") && source $(q "$EXECUTORCH_VENV/bin/activate") && python -m pip install --upgrade pip setuptools wheel && python -m pip install -r requirements.txt && python -m pip install -r backends/qualcomm/requirements.txt"
+  as_target_user bash -lc "cd $(q "$EXECUTORCH_ROOT") && source $(q "$EXECUTORCH_VENV/bin/activate") && python -m pip install --upgrade pip setuptools wheel && if [ -x ./install_requirements.sh ]; then ./install_requirements.sh; elif [ -f requirements.txt ]; then python -m pip install -r requirements.txt; fi && if [ -f backends/qualcomm/requirements.txt ]; then python -m pip install -r backends/qualcomm/requirements.txt; fi"
 
   as_target_user bash -lc "cd $(q "$EXECUTORCH_ROOT") && source $(q "$EXECUTORCH_VENV/bin/activate") && cmake -S . -B build-x86 \
     -DCMAKE_BUILD_TYPE=Release \
