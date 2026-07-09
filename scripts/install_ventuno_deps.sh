@@ -19,6 +19,7 @@ ROS_DOMAIN_ID_VALUE="${ROS_DOMAIN_ID_VALUE:-0}"
 QNN_SDK_VERSION="${QNN_SDK_VERSION:-2.48.0.260626}"
 QNN_SDK_URL="${QNN_SDK_URL:-https://softwarecenter.qualcomm.com/api/download/software/sdks/Qualcomm_AI_Runtime_Community/All/${QNN_SDK_VERSION}/v${QNN_SDK_VERSION}.zip}"
 QNN_SDK_ZIP="${QNN_SDK_ZIP:-}"
+QNN_SDK_ROOT_EXPLICIT=0
 
 INSTALL_EXPORT_PYTHON_DEPS=0
 DOWNLOAD_YOLOX_WEIGHTS=0
@@ -61,8 +62,8 @@ Options:
 
 Environment overrides:
   ROS_DISTRO, EXECUTORCH_REPO, EXECUTORCH_REF, PROJECT_VENV,
-  EXECUTORCH_VENV, QNN_SDK_ROOT, QNN_SDK_VERSION, QNN_SDK_URL,
-  QNN_SDK_ZIP, ROS_DOMAIN_ID_VALUE
+  EXECUTORCH_VENV, QNN_SDK_VERSION, QNN_SDK_URL, QNN_SDK_ZIP,
+  ROS_DOMAIN_ID_VALUE
 EOF
 }
 
@@ -76,7 +77,7 @@ while [ "$#" -gt 0 ]; do
       shift
       ;;
     --executorch-ref) EXECUTORCH_REF="${2:?missing ref}"; shift ;;
-    --qnn-sdk-root) QNN_SDK_ROOT="${2:?missing path}"; shift ;;
+    --qnn-sdk-root) QNN_SDK_ROOT="${2:?missing path}"; QNN_SDK_ROOT_EXPLICIT=1; shift ;;
     --qnn-sdk-url) QNN_SDK_URL="${2:?missing URL}"; shift ;;
     --qnn-sdk-zip) QNN_SDK_ZIP="${2:?missing path}"; shift ;;
     --with-export-python-deps) INSTALL_EXPORT_PYTHON_DEPS=1 ;;
@@ -93,6 +94,10 @@ while [ "$#" -gt 0 ]; do
   esac
   shift
 done
+
+if [ "$QNN_SDK_ROOT_EXPLICIT" -eq 0 ]; then
+  unset QNN_SDK_ROOT
+fi
 
 if [ "${EUID}" -eq 0 ]; then
   TARGET_USER="${SUDO_USER:-root}"
@@ -274,15 +279,12 @@ install_apt_dependencies() {
 }
 
 detect_qnn_sdk() {
-  if [ -n "${QNN_SDK_ROOT:-}" ]; then
+  if [ "$QNN_SDK_ROOT_EXPLICIT" -eq 1 ]; then
+    [ -n "${QNN_SDK_ROOT:-}" ] || die "--qnn-sdk-root was set but QNN_SDK_ROOT is empty"
     return
   fi
 
-  if [ -d /opt/qcom/aistack/qairt ]; then
-    QNN_SDK_ROOT="$(find /opt/qcom/aistack/qairt -mindepth 1 -maxdepth 1 -type d | sort -V | tail -n1 || true)"
-  fi
-
-  QNN_SDK_ROOT="${QNN_SDK_ROOT:-/opt/qcom/aistack/qairt/$QNN_SDK_VERSION}"
+  QNN_SDK_ROOT="/opt/qcom/aistack/qairt/$QNN_SDK_VERSION"
 }
 
 qnn_sdk_looks_installed() {
@@ -601,7 +603,7 @@ PATCH
 build_executorch() {
   detect_qnn_sdk
   [ -d "$EXECUTORCH_ROOT/.git" ] || die "ExecuTorch checkout missing at $EXECUTORCH_ROOT"
-  [ -d "$QNN_SDK_ROOT" ] || die "QNN SDK root missing at $QNN_SDK_ROOT. Set --qnn-sdk-root if it lives elsewhere."
+  qnn_sdk_looks_installed || die "QNN SDK missing or incomplete at $QNN_SDK_ROOT. Rerun with --qnn-sdk-zip PATH if the Qualcomm download requires login."
 
   patch_executorch_for_ventuno
 
