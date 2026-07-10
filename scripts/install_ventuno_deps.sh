@@ -266,6 +266,11 @@ install_apt_dependencies() {
     "ros-${ROS_DISTRO}-rclpy" \
     "ros-${ROS_DISTRO}-rmw-fastrtps-cpp" \
     "ros-${ROS_DISTRO}-rosidl-default-generators" \
+    "ros-${ROS_DISTRO}-rqt" \
+    "ros-${ROS_DISTRO}-rqt-common-plugins" \
+    "ros-${ROS_DISTRO}-rqt-graph" \
+    "ros-${ROS_DISTRO}-rqt-image-view" \
+    "ros-${ROS_DISTRO}-rqt-topic" \
     "ros-${ROS_DISTRO}-sensor-msgs" \
     "ros-${ROS_DISTRO}-vision-msgs"
 
@@ -387,10 +392,17 @@ EOF
 
   sudo_run touch "$bashrc"
   sudo_run chown "$TARGET_USER:$TARGET_GROUP" "$bashrc"
+
+  ros_line="[ -f /opt/ros/$ROS_DISTRO/setup.bash ] && . /opt/ros/$ROS_DISTRO/setup.bash"
   env_line='[ -f "$HOME/.ventuno_object_tracking_env" ] && . "$HOME/.ventuno_object_tracking_env"'
-  if ! grep -Fq "$env_line" "$bashrc"; then
+  if ! grep -Fq "$ros_line" "$bashrc" || ! grep -Fq "$env_line" "$bashrc"; then
     tmp="$(mktemp)"
-    printf '%s\n' "$env_line" > "$tmp"
+    if ! grep -Fq "$ros_line" "$bashrc"; then
+      printf '%s\n' "$ros_line" > "$tmp"
+    fi
+    if ! grep -Fq "$env_line" "$bashrc"; then
+      printf '%s\n' "$env_line" >> "$tmp"
+    fi
     cat "$bashrc" >> "$tmp"
     sudo_run install -o "$TARGET_USER" -g "$TARGET_GROUP" -m 0644 "$tmp" "$bashrc"
     rm -f "$tmp"
@@ -679,8 +691,8 @@ main() {
   cat <<EOF
 
 Open a new shell, or run:
-  source "$TARGET_HOME/.ventuno_object_tracking_env"
   source /opt/ros/$ROS_DISTRO/setup.bash
+  source "$TARGET_HOME/.ventuno_object_tracking_env"
 
 Project root:
   $PROJECT_ROOT
