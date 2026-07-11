@@ -29,7 +29,7 @@ from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument, IncludeLaunchDescription
 from launch.conditions import IfCondition
 from launch.launch_description_sources import PythonLaunchDescriptionSource
-from launch.substitutions import LaunchConfiguration, PathJoinSubstitution
+from launch.substitutions import EnvironmentVariable, LaunchConfiguration, PathJoinSubstitution
 from launch_ros.actions import Node
 from launch_ros.parameter_descriptions import ParameterValue
 from launch_ros.substitutions import FindPackageShare
@@ -54,8 +54,10 @@ def generate_launch_description():
 
     qnn_lib_dir_arg = DeclareLaunchArgument(
         "qnn_lib_dir",
-        default_value="/opt/qcom/aistack/qairt/2.47.0.260601/lib/aarch64-oe-linux-gcc11.2",
-        description="Directory containing QNN runtime libraries (npu backend)")
+        default_value=PathJoinSubstitution([
+            EnvironmentVariable("QAIRT_LIB"), "aarch64-oe-linux-gcc11.2"]),
+        description="Directory containing QNN runtime libraries; defaults to "
+                    "$QAIRT_LIB/aarch64-oe-linux-gcc11.2 (npu backend)")
 
     publish_cmd_vel_arg = DeclareLaunchArgument(
         "publish_cmd_vel", default_value="true",
