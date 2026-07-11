@@ -17,7 +17,7 @@ yolox_detector:
     #   ros2 param set /yolox_detector target_class bottle
     target_class: "person"
     tracked_topic: "/tracked_object"
-    track_smoothing: 0.4       # EMA weight on new bbox measurement (0..1)
+    track_smoothing: 0.7       # EMA weight on new bbox measurement (0..1); higher = less lag
     track_gate: 0.15           # max center jump to keep lock (fraction of width)
     track_reset_frames: 10     # frames target unseen before the lock is dropped
 

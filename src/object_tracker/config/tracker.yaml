@@ -2,24 +2,25 @@ robot_tracker:
   ros__parameters:
     # Frame geometry — must match the camera's published image size, since the
     # detector reports bounding boxes in original-image pixels.
-    image_width: 1920
-    image_height: 1080
+    image_width: 640
+    image_height: 360
 
-    # Proportional control gains.
-    angular_gain: 1.2          # turn effort per unit horizontal error [-1..1]
-    linear_gain: 0.8           # drive effort per unit bbox-fill error
+    # Responsive proportional control. These values trade a small amount of
+    # steady-state jitter for prompt reaction to a moving person.
+    angular_gain: 2.0          # turn effort per unit horizontal error [-1..1]
+    linear_gain: 1.0           # drive effort per unit bbox-fill error
 
     # Following distance: desired target bbox height as a fraction of image height.
     # Larger value = robot keeps the target closer/bigger in frame.
     target_bbox_fill: 0.5
 
-    # Speed caps (keep low for first runs).
-    max_linear_speed: 0.20     # m/s (forward and reverse)
-    max_angular_speed: 1.0     # rad/s
+    # Speed caps. Kept within a cautious indoor following range.
+    max_linear_speed: 0.25     # m/s (forward and reverse)
+    max_angular_speed: 1.5     # rad/s
 
-    # Ignore tiny errors to avoid jitter.
-    angular_deadband: 0.05     # normalized horizontal error
-    distance_deadband: 0.05    # bbox-fill error
+    # Ignore only very small errors: 0.02 is about 13 px at 640 px wide.
+    angular_deadband: 0.02     # normalized horizontal error
+    distance_deadband: 0.03    # bbox-fill error
 
     # Lost-target handling.
     lost_timeout: 0.6          # s without a target before we stop following
