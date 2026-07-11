@@ -4,6 +4,9 @@
     enable_rgb: true
     enable_left: false
     enable_right: false
+    # Stereo depth is aligned to the RGB stream so RGB detection boxes can be
+    # sampled directly. It is published as 16UC1 millimetres (0 = invalid).
+    enable_depth: true
 
     # RGB settings
     # 640x360 keeps the native 16:9 aspect ratio (1920x1080 / 3) so the CROP
@@ -26,6 +29,7 @@
     rgb_topic: "oak/rgb/image_raw"
     left_topic: "oak/left/image_raw"
     right_topic: "oak/right/image_raw"
+    depth_topic: "oak/depth/image_raw"
 
     # Camera info URLs (empty = no calibration published)
     rgb_camera_info_url: ""
@@ -36,3 +40,5 @@
     rgb_frame_id: "oak_rgb_camera_optical_frame"
     left_frame_id: "oak_left_camera_optical_frame"
     right_frame_id: "oak_right_camera_optical_frame"
+    # Pixels are RGB-aligned; depth values are measured from the OAK stereo pair.
+    depth_frame_id: "oak_rgb_camera_optical_frame"

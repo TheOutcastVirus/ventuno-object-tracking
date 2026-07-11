@@ -25,6 +25,7 @@ struct OakCameraNode::DaiResources
   std::shared_ptr<dai::MessageQueue> rgb_queue;
   std::shared_ptr<dai::MessageQueue> left_queue;
   std::shared_ptr<dai::MessageQueue> right_queue;
+  std::shared_ptr<dai::MessageQueue> depth_queue;
 };
 
 OakCameraNode::OakCameraNode(const rclcpp::NodeOptions & options)
@@ -62,12 +63,15 @@ OakCameraNode::OakCameraNode(const rclcpp::NodeOptions & options)
       this, "oak_right", right_camera_info_url_);
     right_pub_ = it.advertiseCamera(right_topic_, 1);
   }
+  if (enable_depth_) {
+    depth_pub_ = it.advertise(depth_topic_, 1);
+  }
 
   using namespace std::chrono_literals;
   timer_ = create_wall_timer(5ms, std::bind(&OakCameraNode::publishLoop, this));
 
-  RCLCPP_INFO(get_logger(), "OAK camera node started. rgb=%d left=%d right=%d",
-    enable_rgb_, enable_left_, enable_right_);
+  RCLCPP_INFO(get_logger(), "OAK camera node started. rgb=%d left=%d right=%d depth=%d",
+    enable_rgb_, enable_left_, enable_right_, enable_depth_);
 }
 
 OakCameraNode::~OakCameraNode()
@@ -83,6 +87,7 @@ void OakCameraNode::declareParameters()
   enable_rgb_   = declare_parameter("enable_rgb",   true);
   enable_left_  = declare_parameter("enable_left",  false);
   enable_right_ = declare_parameter("enable_right", false);
+  enable_depth_ = declare_parameter("enable_depth", true);
 
   rgb_fps_    = declare_parameter("rgb_fps",    30.0);
   rgb_width_  = declare_parameter("rgb_width",  1920);
@@ -96,6 +101,7 @@ void OakCameraNode::declareParameters()
   rgb_topic_   = declare_parameter("rgb_topic",   std::string("oak/rgb/image_raw"));
   left_topic_  = declare_parameter("left_topic",  std::string("oak/left/image_raw"));
   right_topic_ = declare_parameter("right_topic", std::string("oak/right/image_raw"));
+  depth_topic_ = declare_parameter("depth_topic", std::string("oak/depth/image_raw"));
 
   rgb_camera_info_url_   = declare_parameter("rgb_camera_info_url",   std::string(""));
   left_camera_info_url_  = declare_parameter("left_camera_info_url",  std::string(""));
@@ -104,6 +110,11 @@ void OakCameraNode::declareParameters()
   rgb_frame_id_   = declare_parameter("rgb_frame_id",   std::string("oak_rgb_camera_optical_frame"));
   left_frame_id_  = declare_parameter("left_frame_id",  std::string("oak_left_camera_optical_frame"));
   right_frame_id_ = declare_parameter("right_frame_id", std::string("oak_right_camera_optical_frame"));
+  depth_frame_id_ = declare_parameter("depth_frame_id", std::string("oak_rgb_camera_optical_frame"));
+
+  if (enable_depth_ && !enable_rgb_) {
+    throw std::invalid_argument("enable_depth requires enable_rgb so depth can be RGB-aligned");
+  }
 }
 
 void OakCameraNode::buildPipeline()
@@ -115,19 +126,50 @@ void OakCameraNode::buildPipeline()
   // mismatch. rgb_output_ (video/isp/preview) is no longer meaningful with the
   // unified Camera API and is intentionally ignored.
 
+  dai::Node::Output * rgb_out = nullptr;
   if (enable_rgb_) {
     auto cam = dai_->pipeline.create<dai::node::Camera>();
     cam->build(dai::CameraBoardSocket::CAM_A);
-    auto * out = cam->requestOutput(
+    rgb_out = cam->requestOutput(
       {static_cast<uint32_t>(rgb_width_), static_cast<uint32_t>(rgb_height_)},
       std::nullopt,
       dai::ImgResizeMode::CROP,
       static_cast<float>(rgb_fps_));
     // depth=1 non-blocking: always hold only the newest frame; older frames are
     // dropped immediately rather than queuing up and adding display lag.
-    dai_->rgb_queue = out->createOutputQueue(1, false);
+    dai_->rgb_queue = rgb_out->createOutputQueue(1, false);
     RCLCPP_INFO(get_logger(), "RGB stream: %dx%d @ %.1f fps -> '%s'",
       rgb_width_, rgb_height_, rgb_fps_, rgb_topic_.c_str());
+  }
+
+  // StereoDepth consumes its own synchronized mono outputs even when the raw
+  // mono topics are disabled. ImageAlign makes the output pixel-for-pixel
+  // compatible with RGB YOLOX detection boxes.
+  if (enable_depth_) {
+    auto left_cam = dai_->pipeline.create<dai::node::Camera>();
+    left_cam->build(dai::CameraBoardSocket::CAM_B);
+    auto * left_out = left_cam->requestOutput(
+      {static_cast<uint32_t>(mono_width_), static_cast<uint32_t>(mono_height_)},
+      std::nullopt, dai::ImgResizeMode::CROP, static_cast<float>(mono_fps_));
+
+    auto right_cam = dai_->pipeline.create<dai::node::Camera>();
+    right_cam->build(dai::CameraBoardSocket::CAM_C);
+    auto * right_out = right_cam->requestOutput(
+      {static_cast<uint32_t>(mono_width_), static_cast<uint32_t>(mono_height_)},
+      std::nullopt, dai::ImgResizeMode::CROP, static_cast<float>(mono_fps_));
+
+    auto stereo = dai_->pipeline.create<dai::node::StereoDepth>();
+    stereo->setDefaultProfilePreset(dai::node::StereoDepth::PresetMode::ROBOTICS);
+    stereo->setLeftRightCheck(true);
+    left_out->link(stereo->left);
+    right_out->link(stereo->right);
+
+    auto align = dai_->pipeline.create<dai::node::ImageAlign>();
+    stereo->depth.link(align->input);
+    rgb_out->link(align->inputAlignTo);
+    dai_->depth_queue = align->outputAligned.createOutputQueue(1, false);
+    RCLCPP_INFO(get_logger(), "RGB-aligned stereo depth: %dx%d @ %.1f fps -> '%s'",
+      rgb_width_, rgb_height_, mono_fps_, depth_topic_.c_str());
   }
 
   if (enable_left_) {
@@ -224,6 +266,15 @@ void OakCameraNode::publishLoop()
       auto info = right_info_mgr_->getCameraInfo();
       info.header = img->header;
       right_pub_.publish(*img, info);
+    }
+  }
+
+  if (enable_depth_ && dai_->depth_queue) {
+    auto frame = dai_->depth_queue->tryGet<dai::ImgFrame>();
+    if (frame) {
+      // StereoDepth emits RAW16 depth in millimetres; 0 means no valid match.
+      auto img = toImageMsg(frame, depth_frame_id_, sensor_msgs::image_encodings::TYPE_16UC1);
+      depth_pub_.publish(*img);
     }
   }
 }

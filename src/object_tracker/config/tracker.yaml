@@ -8,11 +8,21 @@ robot_tracker:
     # Responsive proportional control. These values trade a small amount of
     # steady-state jitter for prompt reaction to a moving person.
     angular_gain: 2.0          # turn effort per unit horizontal error [-1..1]
-    linear_gain: 1.0           # drive effort per unit bbox-fill error
+    linear_gain: 0.7           # drive effort per metre of range error
 
-    # Following distance: desired target bbox height as a fraction of image height.
-    # Larger value = robot keeps the target closer/bigger in frame.
-    target_bbox_fill: 0.5
+    # Metric following distance from RGB-aligned OAK stereo depth.
+    target_distance_m: 1.2
+    depth_topic: "/oak/depth/image_raw"
+    depth_max_age: 0.20        # reject depth not matched to detection within this time
+    depth_min_m: 0.4
+    depth_max_m: 3.0
+    depth_min_valid_fraction: 0.15
+    # Contract YOLOX boxes before sampling: reduces background/limb contamination.
+    depth_roi_side_trim: 0.20
+    depth_roi_top_trim: 0.15
+    depth_roi_bottom_trim: 0.20
+    depth_smoothing: 0.4       # EMA weight on a new accepted depth measurement
+    log_target_distance: false # Set true to print valid measured range
 
     # Speed caps. Kept within a cautious indoor following range.
     max_linear_speed: 0.25     # m/s (forward and reverse)
@@ -20,7 +30,7 @@ robot_tracker:
 
     # Ignore only very small errors: 0.02 is about 13 px at 640 px wide.
     angular_deadband: 0.02     # normalized horizontal error
-    distance_deadband: 0.03    # bbox-fill error
+    distance_deadband: 0.03    # metres
 
     # Lost-target handling.
     lost_timeout: 0.6          # s without a target before we stop following

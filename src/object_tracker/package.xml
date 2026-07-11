@@ -5,8 +5,8 @@
   <version>0.1.0</version>
   <description>
     TurtleBot 4 follower: consumes the yolox_detector /tracked_object topic and
-    drives the robot to keep the target centered and at a set distance, using the
-    detection bounding-box size as a distance proxy. Rotates to search when the
+    drives the robot to keep the target centered and at a metric following
+    distance using RGB-aligned OAK stereo depth. Rotates to search when the
     target is lost.
   </description>
   <maintainer email="todo@todo.com">ventuno</maintainer>
@@ -15,6 +15,8 @@
   <exec_depend>rclpy</exec_depend>
   <exec_depend>geometry_msgs</exec_depend>
   <exec_depend>vision_msgs</exec_depend>
+  <exec_depend>sensor_msgs</exec_depend>
+  <exec_depend>python3-numpy</exec_depend>
 
   <test_depend>ament_copyright</test_depend>
   <test_depend>ament_flake8</test_depend>

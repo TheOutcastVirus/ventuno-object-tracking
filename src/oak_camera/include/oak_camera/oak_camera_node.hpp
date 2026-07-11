@@ -37,6 +37,7 @@ private:
   image_transport::CameraPublisher rgb_pub_;
   image_transport::CameraPublisher left_pub_;
   image_transport::CameraPublisher right_pub_;
+  image_transport::Publisher depth_pub_;
 
   std::shared_ptr<camera_info_manager::CameraInfoManager> rgb_info_mgr_;
   std::shared_ptr<camera_info_manager::CameraInfoManager> left_info_mgr_;
@@ -47,6 +48,7 @@ private:
   bool enable_rgb_;
   bool enable_left_;
   bool enable_right_;
+  bool enable_depth_;
 
   double rgb_fps_;
   int rgb_width_;
@@ -60,6 +62,7 @@ private:
   std::string rgb_topic_;
   std::string left_topic_;
   std::string right_topic_;
+  std::string depth_topic_;
 
   std::string rgb_camera_info_url_;
   std::string left_camera_info_url_;
@@ -68,6 +71,7 @@ private:
   std::string rgb_frame_id_;
   std::string left_frame_id_;
   std::string right_frame_id_;
+  std::string depth_frame_id_;
 };
 
 }  // namespace oak_camera
