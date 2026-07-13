@@ -1,6 +1,7 @@
 # Ventuno Object Tracking
 
 ![YOLOX-Tiny detections running on the Ventuno Q NPU](docs/images/detections_demo.gif)
+![Object tracking demo running on the TurtleBot 4](docs/images/tracking_demo.gif)
 
 A person-following robot demo built on a [TurtleBot 4](https://clearpathrobotics.com/turtlebot-4/), with the
 stock Raspberry Pi replaced by an **Arduino Ventuno Q** board. It shows an end-to-end edge AI pipeline running entirely on-device on Qualcomm hardware:
