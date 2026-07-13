@@ -3,8 +3,7 @@
 ![YOLOX-Tiny detections running on the Ventuno Q NPU](docs/images/detections_demo.gif)
 
 A person-following robot demo built on a [TurtleBot 4](https://clearpathrobotics.com/turtlebot-4/), with the
-stock Raspberry Pi replaced by an **Arduino Ventuno Q** board. It shows an end-to-end edge AI pipeline —
-camera in, NPU inference, robot motion out — running entirely on-device on Qualcomm hardware:
+stock Raspberry Pi replaced by an **Arduino Ventuno Q** board. It shows an end-to-end edge AI pipeline running entirely on-device on Qualcomm hardware:
 
 - **OAK-D Lite** stereo camera streams RGB + depth over ROS 2
 - **YOLOX-Tiny** detects objects on the Ventuno Q's Hexagon NPU via [ExecuTorch](https://github.com/pytorch/executorch)
@@ -12,15 +11,14 @@ camera in, NPU inference, robot motion out — running entirely on-device on Qua
 - A simple tracker locks onto a target class (e.g. `person`, `bottle`, `chair`) and drives the TurtleBot 4's
   Create 3 base to follow it at a set distance, using stereo depth for range
 
-Everything runs natively on the board — no offboard compute, no cross-compilation.
+Everything runs natively on the board, no internet required.
 
 ## Hardware
 
 | Component | Role |
 |---|---|
 | Arduino Ventuno Q | Compute: Hexagon NPU, ARM CPU, replaces the TurtleBot 4's Raspberry Pi |
-| Clearpath TurtleBot 4 Lite (Create 3 base) | Mobile base |
-| OAK-D Lite (Luxonis) | RGB + stereo depth camera |
+| Clearpath TurtleBot 4 Lite (Create 3 base) | Mobile base and sensor package |
 
 ## Software stack
 
@@ -31,7 +29,7 @@ Everything runs natively on the board — no offboard compute, no cross-compilat
 
 ## Quickstart
 
-On a fresh Ventuno Q (Ubuntu 24.04 / ROS 2 Jazzy):
+On a fresh Ventuno Q (Ubuntu 24.04):
 
 ```bash
 git clone <this-repo-url> ~/Documents/ventuno-object-tracking
@@ -41,8 +39,8 @@ bash scripts/install_ventuno_deps.sh
 
 This installs ROS/system dependencies, the QAIRT/QNN SDK, builds ExecuTorch with the Qualcomm backend, sets up
 the Create 3 USB-ethernet link, and builds the ROS workspace. See
-[`docs/VENTUNO_Q_QNN_EXECUTORCH_RUNBOOK.md`](docs/VENTUNO_Q_QNN_EXECUTORCH_RUNBOOK.md) for what it does step by
-step and how to replicate it manually.
+[`.claude/skills/ventuno-setup/SKILL.md`](.claude/skills/ventuno-setup/SKILL.md) for what it does step by step,
+how to debug a failed run, and how to replicate it manually on another board.
 
 Run detection on the bundled sample images (no camera or robot required):
 
@@ -73,11 +71,19 @@ docs/                  Setup guides and hardware bring-up notes
 
 ## Docs
 
-- [`docs/VENTUNO_Q_QNN_EXECUTORCH_RUNBOOK.md`](docs/VENTUNO_Q_QNN_EXECUTORCH_RUNBOOK.md) — full setup, from board
-  identification to a running NPU detector
-- [`docs/create3_connection.md`](docs/create3_connection.md) — wiring and bring-up for the Create 3 USB link
-- [`docs/setup.md`](docs/setup.md) — board/network tuning notes
-- [`docs/PROJECT_CONTEXT.md`](docs/PROJECT_CONTEXT.md) — project goals and hardware background
+Board setup and debugging knowledge lives in the `ventuno-setup` agent skill (plain markdown,
+readable by any coding agent or human):
+
+- [`.claude/skills/ventuno-setup/SKILL.md`](.claude/skills/ventuno-setup/SKILL.md) — overview,
+  troubleshooting index, and end-to-end verification
+- [`.claude/skills/ventuno-setup/references/executorch-qnn.md`](.claude/skills/ventuno-setup/references/executorch-qnn.md) —
+  full ExecuTorch/QNN setup, from board identification to a running NPU detector
+- [`.claude/skills/ventuno-setup/references/create3-connection.md`](.claude/skills/ventuno-setup/references/create3-connection.md) —
+  wiring and bring-up for the Create 3 USB link
+- [`.claude/skills/ventuno-setup/references/ros-networking.md`](.claude/skills/ventuno-setup/references/ros-networking.md) —
+  DDS/network tuning notes
+
+See also [`AGENTS.md`](AGENTS.md) for the Codex-compatible pointer to the same content.
 
 ## License
 
