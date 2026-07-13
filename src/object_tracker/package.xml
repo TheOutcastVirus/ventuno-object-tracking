@@ -9,7 +9,7 @@
     distance using RGB-aligned OAK stereo depth. Rotates to search when the
     target is lost.
   </description>
-  <maintainer email="todo@todo.com">ventuno</maintainer>
+  <maintainer email="vkommera@ucsd.edu">ventuno</maintainer>
   <license>MIT</license>
 
   <exec_depend>rclpy</exec_depend>

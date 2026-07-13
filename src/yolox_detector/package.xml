@@ -4,7 +4,7 @@
   <name>yolox_detector</name>
   <version>0.1.0</version>
   <description>YOLOX object detector ROS 2 node with ExecuTorch XNNPACK (CPU) and QNN (NPU) backends</description>
-  <maintainer email="todo@todo.com">ventuno</maintainer>
+  <maintainer email="vkommera@ucsd.edu">ventuno</maintainer>
   <license>MIT</license>
 
   <buildtool_depend>ament_cmake</buildtool_depend>
