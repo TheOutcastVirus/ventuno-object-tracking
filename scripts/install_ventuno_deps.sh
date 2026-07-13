@@ -21,8 +21,6 @@ QNN_SDK_URL="${QNN_SDK_URL:-https://softwarecenter.qualcomm.com/api/download/sof
 QNN_SDK_ZIP="${QNN_SDK_ZIP:-}"
 QNN_SDK_ROOT_EXPLICIT=0
 
-INSTALL_EXPORT_PYTHON_DEPS=0
-DOWNLOAD_YOLOX_WEIGHTS=0
 SKIP_SAMPLE_IMAGES=0
 SKIP_ROSDEP=0
 SKIP_CREATE3_SERVICE=0
@@ -48,8 +46,6 @@ Options:
   --qnn-sdk-root PATH         QAIRT/QNN SDK root. Defaults to /opt/qcom/aistack/qairt/2.48.0.260626.
   --qnn-sdk-url URL           QAIRT/QNN SDK zip URL to download if the SDK is missing.
   --qnn-sdk-zip PATH          Local QAIRT/QNN SDK zip to install if the SDK is missing.
-  --with-export-python-deps   Install requirements-export.txt into the project venv.
-  --download-yolox-weights    Download YOLOX .pth weights. Off by default; pre-exported .pte is expected.
   --skip-sample-images        Do not download sample COCO images for dataset launches.
   --skip-models               Compatibility alias for --skip-sample-images.
   --skip-rosdep               Do not run rosdep install.
@@ -80,8 +76,6 @@ while [ "$#" -gt 0 ]; do
     --qnn-sdk-root) QNN_SDK_ROOT="${2:?missing path}"; QNN_SDK_ROOT_EXPLICIT=1; shift ;;
     --qnn-sdk-url) QNN_SDK_URL="${2:?missing URL}"; shift ;;
     --qnn-sdk-zip) QNN_SDK_ZIP="${2:?missing path}"; shift ;;
-    --with-export-python-deps) INSTALL_EXPORT_PYTHON_DEPS=1 ;;
-    --download-yolox-weights) DOWNLOAD_YOLOX_WEIGHTS=1 ;;
     --skip-sample-images|--skip-models) SKIP_SAMPLE_IMAGES=1 ;;
     --skip-rosdep) SKIP_ROSDEP=1 ;;
     --skip-create3-service) SKIP_CREATE3_SERVICE=1 ;;
@@ -492,23 +486,13 @@ setup_project_python() {
   log "Installing project Python dependencies into $PROJECT_VENV"
   as_target_user python3 -m venv "$PROJECT_VENV"
   as_target_user bash -lc "source $(q "$PROJECT_VENV/bin/activate") && python -m pip install --upgrade pip setuptools wheel"
-  if [ "$INSTALL_EXPORT_PYTHON_DEPS" -eq 1 ]; then
-    as_target_user bash -lc "source $(q "$PROJECT_VENV/bin/activate") && cd $(q "$PROJECT_ROOT") && python -m pip install -r requirements-export.txt"
-  else
-    as_target_user bash -lc "source $(q "$PROJECT_VENV/bin/activate") && cd $(q "$PROJECT_ROOT") && python -m pip install -r requirements.txt"
-  fi
+  as_target_user bash -lc "source $(q "$PROJECT_VENV/bin/activate") && cd $(q "$PROJECT_ROOT") && python -m pip install -r requirements.txt"
 }
 
 setup_assets() {
   log "Preparing model and dataset directories"
   as_target_user mkdir -p "$PROJECT_ROOT/models" "$PROJECT_ROOT/datasets/sample_images"
-
-  if [ "$DOWNLOAD_YOLOX_WEIGHTS" -eq 1 ]; then
-    log "Downloading YOLOX weights"
-    as_target_user bash -lc "cd $(q "$PROJECT_ROOT") && source $(q "$PROJECT_VENV/bin/activate") && python scripts/download_models.py --skip-export"
-  else
-    log "Skipping YOLOX weight download; expecting pre-exported models in $PROJECT_ROOT/models"
-  fi
+  log "Expecting pre-exported models in $PROJECT_ROOT/models"
 
   if [ "$SKIP_SAMPLE_IMAGES" -eq 1 ]; then
     return
