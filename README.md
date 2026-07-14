@@ -33,7 +33,7 @@ Everything runs natively on the board, no internet required.
 On a fresh Ventuno Q (Ubuntu 24.04):
 
 ```bash
-git clone <this-repo-url> ~/Documents/ventuno-object-tracking
+git clone https://github.com/TheOutcastVirus/ventuno-object-tracking.git ~/Documents/ventuno-object-tracking
 cd ~/Documents/ventuno-object-tracking
 bash scripts/install_ventuno_deps.sh
 ```
