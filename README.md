@@ -54,9 +54,9 @@ ros2 launch yolox_detector dataset_detector.launch.py backend:=npu
 Run the full following demo on the robot:
 
 ```bash
-ros2 launch object_tracking.launch.py
-ros2 launch object_tracking.launch.py target_class:=bottle   # follow a different class
-ros2 launch object_tracking.launch.py publish_cmd_vel:=false # dry run, no motion
+ros2 launch launch/object_tracking.launch.py
+ros2 launch launch/object_tracking.launch.py target_class:=bottle   # follow a different class
+ros2 launch launch/object_tracking.launch.py publish_cmd_vel:=false # dry run, no motion
 ```
 
 ## Repo layout
