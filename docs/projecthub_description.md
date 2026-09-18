@@ -1,11 +1,14 @@
 # A TurtleBot 4 That Follows You, Powered by an Arduino Ventuno Q
 
-> **Subheading:** We pulled the Raspberry Pi out of a TurtleBot 4 and replaced it with an
-> Arduino Ventuno Q. YOLOX-Tiny now runs on the board's Hexagon NPU, and the robot follows
-> you around the room, with perception, tracking, and motor control all on-device: no cloud,
-> no network, no laptop.
+> **Subheading:** Upgrade your TurtleBot 4 with an Arduino Ventuno Q: run local YOLOX-Tiny
+> object tracking on the Hexagon NPU with zero cloud or laptop dependency.
 
-![The robot locking onto a person and following them at a fixed distance](images/tracking_demo.gif)
+<video controls playsinline preload="metadata" poster="images/object-following-poster.jpg" width="100%">
+  <source src="images/object-following-demo.mp4" type="video/mp4">
+  <a href="images/object-following-demo.mp4">Watch the object-following demo</a>.
+</video>
+
+[Watch the object-following demo (MP4)](images/object-following-demo.mp4)
 
 ---
 
@@ -24,6 +27,8 @@
 |---|---|
 | 1 | Arduino Ventuno Q |
 | 1 | Clearpath TurtleBot 4 Lite, iRobot Create 3 base |
+| 1 | Luxonis OAK-D Lite camera |
+| 1 | USB-C cable for the Create 3 USB-ethernet link |
 
 ### Apps and platforms
 
@@ -50,7 +55,7 @@ The result is a robot that sees a person, locks onto them, and follows them at a
 distance. Everything runs on the robot. You can unplug the router and it keeps
 working.
 
-![YOLOX-Tiny detections running on the Ventuno Q's Hexagon NPU](images/detections_demo.gif)
+![YOLOX-Tiny detections running on the Ventuno Q's Hexagon NPU](images/detections-still.jpg)
 
 ## What it does
 
@@ -65,9 +70,23 @@ working.
 - **Recovers when it loses you.** Lose the target and it stops, waits, then rotates in
   place toward wherever you were last seen to re-acquire.
 
+## User Interface & Feedback
+
+The annotated camera feed on `/detections/image` draws boxes around detected objects and
+marks the one target the robot has locked onto. Open it in `rqt_image_view` to see what the
+detector sees. The target class can be selected at launch, for example with
+`target_class:=bottle`.
+
+The robot's motion gives immediate physical feedback: it turns smoothly to center the
+locked target and moves forward or backward to hold a **1.2 m** gap. If it loses the target,
+it pauses, then rotates toward the last seen direction to look for it again. If depth is
+unreliable, it can still turn to center the target, but it does not drive forward or
+backward. For a first check, `publish_cmd_vel:=false` logs the commands without moving the
+robot.
+
 ## Why the Ventuno Q
 
-Three reasons this board in particular:
+Two reasons this board in particular:
 
 **The NPU is the point.** YOLOX-Tiny on a CPU is the kind of workload that eats a small
 ARM chip alive and leaves nothing for anything else. Offloading it to the Hexagon NPU frees
@@ -80,23 +99,7 @@ than a rebuild.
 
 ## How it works
 
-```
-OAK-D Lite ──RGB + aligned depth──▶ oak_camera
-                                        │
-                              /oak/rgb/image_raw
-                                        ▼
-                                 yolox_detector  ──▶ /detections (all objects)
-                                  (Hexagon NPU)  ──▶ /tracked_object (the one target)
-                                        │
-                                        ▼
-                                  object_tracker ◀── /oak/depth/image_raw
-                                        │
-                                    /cmd_vel
-                                        ▼
-                             create3_republisher ──▶ Create 3 base
-```
-
-<!-- IMAGE: replace the ASCII diagram above with a proper block diagram before publishing -->
+![Object-tracking ROS 2 nodes and data flow](images/object-tracking-architecture.png)
 
 Four ROS 2 nodes, launched together by `launch/object_tracking.launch.py`.
 
@@ -206,6 +209,10 @@ yourself to reproduce this: clone, build, launch.
 
 Remove the Raspberry Pi from the TurtleBot 4's compute bay and mount the Ventuno Q in its
 place. Connect the OAK-D Lite over USB, and wire the Create 3 USB-ethernet link.
+
+![Ventuno Q mounted on the TurtleBot 4 with the OAK-D Lite camera](images/ventuno-turtlebot-overview.jpg)
+
+![Close-up of the mounted Ventuno Q and its cabling](images/turtlebot-mounting.jpg)
 
 ### 2. Software
 

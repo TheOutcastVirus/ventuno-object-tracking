@@ -1,0 +1,44 @@
+digraph object_tracking {
+  graph [
+    rankdir=TB,
+    bgcolor="white",
+    pad="0.3",
+    nodesep="0.55",
+    ranksep="0.7",
+    splines=polyline,
+    fontname="DejaVu Sans"
+  ];
+  node [
+    shape=box,
+    style="rounded,filled",
+    color="#39566f",
+    fillcolor="#eef5fa",
+    fontcolor="#102a43",
+    fontname="DejaVu Sans",
+    fontsize=16,
+    penwidth=1.5,
+    margin="0.22,0.15"
+  ];
+  edge [
+    color="#4c677c",
+    fontcolor="#294761",
+    fontname="DejaVu Sans",
+    fontsize=12,
+    arrowsize=0.8,
+    penwidth=1.5
+  ];
+
+  camera [label="OAK-D Lite\nRGB + stereo depth", fillcolor="#e9f7ef"];
+  oak [label="oak_camera\nROS 2 camera node"];
+  detector [label="yolox_detector\nYOLOX-Tiny · Hexagon NPU", fillcolor="#e8f0ff"];
+  tracker [label="object_tracker\nTarget centering + 1.2 m range control", fillcolor="#fff4df"];
+  bridge [label="create3_republisher\nCreate 3 topic bridge"];
+  base [label="Create 3 base\nWheel motion", fillcolor="#e9f7ef"];
+
+  camera -> oak [label="USB"];
+  oak -> detector [label="/oak/rgb/image_raw"];
+  detector -> tracker [label="/tracked_object"];
+  oak -> tracker [label="/oak/depth/image_raw", constraint=false, minlen=2];
+  tracker -> bridge [label="/cmd_vel"];
+  bridge -> base [label="base velocity commands"];
+}
